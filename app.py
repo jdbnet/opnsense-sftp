@@ -342,6 +342,23 @@ def delete_backup(backup_id):
     return redirect(url_for('backups'))
 
 
+@app.route('/api/backups/latest')
+def api_latest_backups():
+    """API endpoint to get the latest backup date and time for each instance."""
+    latest_backups = db.get_latest_backup_per_instance()
+    
+    # Format the response
+    result = []
+    for item in latest_backups:
+        result.append({
+            'instance_id': item['instance_id'],
+            'instance_name': item['instance_name'],
+            'latest_backup': item['latest_backup'].isoformat() if item['latest_backup'] else None
+        })
+    
+    return jsonify(result)
+
+
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
 
