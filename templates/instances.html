@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+
+{% block title %}Instances - OPNsense Backup Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-neutral-100 mb-2">OPNsense Instances</h1>
+            <p class="text-neutral-400">Manage your OPNsense backup instances</p>
+        </div>
+        <a href="{{ url_for('new_instance') }}" class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+            + Add Instance
+        </a>
+    </div>
+
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-neutral-700">
+            <h2 class="text-xl font-bold text-neutral-100">Configured Instances</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-neutral-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Name</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Identifier</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Last Backup</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-neutral-700">
+                    {% if instances %}
+                        {% for instance in instances %}
+                        <tr class="hover:bg-neutral-700/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-neutral-100">{{ instance.name }}</div>
+                                {% if instance.description %}
+                                <div class="text-sm text-neutral-400">{{ instance.description }}</div>
+                                {% endif %}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <code class="text-sm text-orange-400">{{ instance.identifier }}</code>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm text-neutral-400">
+                                    {% if instance.last_backup %}
+                                        {{ instance.last_backup.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                        <span class="text-neutral-500">Never</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <a href="{{ url_for('instance_detail', instance_id=instance.id) }}" class="text-orange-500 hover:text-orange-400">View Details</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-neutral-400">
+                                No instances configured. <a href="{{ url_for('new_instance') }}" class="text-orange-500 hover:text-orange-400">Create one</a> to get started.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

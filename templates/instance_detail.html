@@ -1,0 +1,163 @@
+{% extends "base.html" %}
+
+{% block title %}{{ instance.name }} - OPNsense Backup Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div class="flex justify-between items-center">
+        <div>
+            <h1 class="text-3xl font-bold text-neutral-100 mb-2">{{ instance.name }}</h1>
+            <p class="text-neutral-400">{{ instance.description or 'OPNsense backup instance' }}</p>
+        </div>
+        <a href="{{ url_for('instances') }}" class="bg-neutral-700 hover:bg-neutral-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200">
+            ← Back to Instances
+        </a>
+    </div>
+
+    <!-- SFTP URI for OPNsense -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <h2 class="text-xl font-bold text-neutral-100 mb-4">SFTP Target Location (URI)</h2>
+        <p class="text-sm text-neutral-400 mb-4">Use this URI format in OPNsense backup configuration:</p>
+        <div class="bg-neutral-900 rounded-md p-4 border border-neutral-600 mb-4">
+            <code class="text-sm text-orange-400 break-all block">{{ sftp_uri }}</code>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button
+                onclick="copyToClipboard('{{ sftp_uri }}')"
+                class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
+            >
+                Copy URI
+            </button>
+        </div>
+        <div class="mt-4 bg-neutral-700 rounded-md p-3">
+            <p class="text-xs text-neutral-400">
+                <strong>Note:</strong> The double slash (<code>//</code>) or single slash after the host indicates the root path. 
+                Backups will be stored automatically in the instance-specific directory.
+            </p>
+        </div>
+    </div>
+
+    <!-- SSH Private Key -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <h2 class="text-xl font-bold text-neutral-100 mb-4">SSH Private Key</h2>
+        <p class="text-sm text-neutral-400 mb-4">
+            <strong class="text-orange-400">IMPORTANT:</strong> OPNsense requires the <strong>private key</strong> for authentication. 
+            Download and paste this into OPNsense's SSH key field.
+        </p>
+        {% if private_key_content %}
+        <div class="bg-neutral-900 rounded-md p-4 border border-neutral-600 mb-4">
+            <code class="text-sm text-neutral-300 whitespace-pre-wrap break-all block">{{ private_key_content }}</code>
+        </div>
+        <div class="flex items-center space-x-2">
+            <button
+                onclick="copyToClipboard('{{ private_key_content }}')"
+                class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
+            >
+                Copy Private Key
+            </button>
+            <a
+                href="{{ url_for('download_private_key', instance_id=instance.id) }}"
+                class="bg-neutral-700 hover:bg-neutral-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
+            >
+                Download Private Key
+            </a>
+        </div>
+        {% else %}
+        <div class="bg-red-900/30 border border-red-700 rounded-md p-4">
+            <p class="text-sm text-red-400">Private key file not found on disk.</p>
+        </div>
+        {% endif %}
+        <div class="mt-4 bg-yellow-900/30 border border-yellow-700 rounded-md p-3">
+            <p class="text-xs text-yellow-400">
+                <strong>Security Warning:</strong> Keep this private key secure. Anyone with access to it can authenticate as this instance.
+            </p>
+        </div>
+    </div>
+
+    <!-- OPNsense Configuration Steps -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <h2 class="text-xl font-bold text-neutral-100 mb-4">OPNsense Configuration Steps</h2>
+        <ol class="list-decimal list-inside space-y-3 text-neutral-300">
+            <li>Navigate to <strong class="text-neutral-100">System → Configuration → Backups</strong> in OPNsense</li>
+            <li>Click on <strong class="text-neutral-100">Add Backup Target</strong> or edit existing</li>
+            <li>Select <strong class="text-neutral-100">SFTP</strong> as the backup type</li>
+            <li>Enter the following:
+                <ul class="list-disc list-inside ml-6 mt-2 space-y-2 text-neutral-400">
+                    <li><strong class="text-neutral-300">Target location (URI):</strong> 
+                        <code class="text-orange-400 bg-neutral-900 px-2 py-1 rounded">{{ sftp_uri }}</code>
+                        <br><span class="text-xs">Copy the URI from above</span>
+                    </li>
+                    <li><strong class="text-neutral-300">SSH Private Key:</strong> 
+                        Copy or download the private key from above
+                        <br><span class="text-xs text-yellow-400">⚠️ OPNsense requires the private key, not the public key!</span>
+                    </li>
+                </ul>
+            </li>
+            <li>Configure your backup schedule and encryption options as desired</li>
+            <li>Save and test the backup configuration</li>
+        </ol>
+        <div class="mt-4 bg-blue-900/30 border border-blue-700 rounded-md p-3">
+            <p class="text-xs text-blue-400">
+                <strong>Tip:</strong> After saving, test the connection to verify authentication works correctly.
+            </p>
+        </div>
+    </div>
+
+    <!-- Backups List -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden">
+        <div class="px-6 py-4 border-b border-neutral-700">
+            <h2 class="text-xl font-bold text-neutral-100">Backups</h2>
+        </div>
+        <div class="overflow-x-auto">
+            <table class="w-full">
+                <thead class="bg-neutral-700">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Filename</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Size</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Upload Date</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-neutral-300 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-neutral-700">
+                    {% if backups %}
+                        {% for backup in backups %}
+                        <tr class="hover:bg-neutral-700/50 transition-colors">
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <code class="text-sm text-neutral-300">{{ backup.filename }}</code>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm text-neutral-400">{{ "%.2f"|format(backup.file_size / 1024 / 1024) }} MB</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="text-sm text-neutral-400">{{ backup.uploaded_at.strftime('%Y-%m-%d %H:%M') if backup.uploaded_at else 'N/A' }}</span>
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                <a href="{{ url_for('download_backup', backup_id=backup.id) }}" class="text-orange-500 hover:text-orange-400">Download</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="4" class="px-6 py-8 text-center text-neutral-400">
+                                No backups yet. Configure OPNsense to start backing up to this instance.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyToClipboard(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        alert('Copied to clipboard!');
+    }, function(err) {
+        console.error('Failed to copy: ', err);
+        alert('Failed to copy to clipboard');
+    });
+}
+</script>
+{% endblock %}
+

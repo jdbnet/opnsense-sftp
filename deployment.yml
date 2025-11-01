@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opnsense-sftp
+  namespace: opnsense-sftp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opnsense-sftp
+  template:
+    metadata:
+      labels:
+        app: opnsense-sftp
+    spec:
+      containers:
+        - name: opnsense-sftp
+          image: ghcr.io/jdb-net/opnsense-sftp:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 5000
+              name: "opnsense-sftp"
+            - containerPort: 2222
+              name: "opnsense-sftp-sftp"
+          env:
+            - name: DB_HOST
+              value: "10.10.2.27"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              value: "opnsense-sftp"
+            - name: DB_USER
+              value: "opnsense-sftp"
+            - name: DB_PASSWORD
+              value: "n1RNwIJ9RvMiWsIE2T4H"
+            - name: SECRET_KEY
+              value: "hSnbupjp3T0UACP5xmLtO6TadizEBc"
+            - name: ADMIN_PASSWORD
+              value: "CVk7QKIB3MjZ8mt6MxES"
+            - name: SFTP_PUBLIC_HOST
+              value: "opnsense-sftp.jdb143.uk"
+            - name: SFTP_PUBLIC_PORT
+              value: "30222"
+          volumeMounts:
+            - name: keys-volume
+              mountPath: /app/keys
+            - name: backups-volume
+              mountPath: /app/backups
+      volumes:
+        - name: keys-volume
+          nfs:
+            server: 10.10.2.5
+            path: /srv/Backups/OPNsense/keys
+        - name: backups-volume
+          nfs:
+            server: 10.10.2.5
+            path: /srv/Backups/OPNsense/backups
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opnsense-sftp-ingress-service
+  namespace: opnsense-sftp
+spec:
+  selector:
+    app: opnsense-sftp
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000
+      name: http
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opnsense-sftp-sftp-service
+  namespace: opnsense-sftp
+spec:
+  type: NodePort
+  selector:
+    app: opnsense-sftp
+  ports:
+    - protocol: TCP
+      port: 2222
+      targetPort: 2222
+      nodePort: 30222
+      name: sftp
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: opnsense-sftp-ingress
+  namespace: opnsense-sftp
+spec:
+  rules:
+  - host: opnsense-sftp.jdb143.uk
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/"
+        backend:
+          service:
+            name: opnsense-sftp-ingress-service
+            port:
+              number: 80
+---

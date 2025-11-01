@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}New Instance - OPNsense Backup Manager{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto">
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-neutral-100 mb-2">Add New OPNsense Instance</h1>
+        <p class="text-neutral-400">Create a new instance to start receiving backups</p>
+    </div>
+
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <form method="POST" action="{{ url_for('new_instance') }}" class="space-y-6">
+            <div>
+                <label for="name" class="block text-sm font-medium text-neutral-300 mb-2">
+                    Instance Name <span class="text-red-400">*</span>
+                </label>
+                <input
+                    type="text"
+                    id="name"
+                    name="name"
+                    required
+                    class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="e.g., Main Router, Office Firewall"
+                >
+                <p class="mt-1 text-sm text-neutral-400">A friendly name for this instance</p>
+            </div>
+
+            <div>
+                <label for="identifier" class="block text-sm font-medium text-neutral-300 mb-2">
+                    Identifier <span class="text-red-400">*</span>
+                </label>
+                <input
+                    type="text"
+                    id="identifier"
+                    name="identifier"
+                    required
+                    pattern="[a-z0-9-_]+"
+                    class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="e.g., main-router, office-fw"
+                >
+                <p class="mt-1 text-sm text-neutral-400">Unique identifier (lowercase, alphanumeric, dashes, underscores only). This will be used as the SFTP username.</p>
+            </div>
+
+            <div>
+                <label for="description" class="block text-sm font-medium text-neutral-300 mb-2">
+                    Description
+                </label>
+                <textarea
+                    id="description"
+                    name="description"
+                    rows="3"
+                    class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                    placeholder="Optional description for this instance"
+                ></textarea>
+            </div>
+
+            <div class="flex justify-end space-x-4 pt-4">
+                <a href="{{ url_for('instances') }}" class="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white font-medium rounded-md transition-colors duration-200">
+                    Cancel
+                </a>
+                <button
+                    type="submit"
+                    class="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white font-medium rounded-md transition-colors duration-200"
+                >
+                    Create Instance
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="mt-6 bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <h3 class="text-lg font-semibold text-neutral-100 mb-4">What happens next?</h3>
+        <ol class="list-decimal list-inside space-y-2 text-neutral-300">
+            <li>An SSH key pair will be automatically generated for this instance</li>
+            <li>You'll be provided with the public key to add to your OPNsense configuration</li>
+            <li>Use the instance identifier as the SFTP username when configuring OPNsense</li>
+            <li>Backups will be automatically stored and tracked</li>
+        </ol>
+    </div>
+</div>
+{% endblock %}
+

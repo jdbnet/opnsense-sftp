@@ -1,0 +1,7 @@
+Flask
+gunicorn
+paramiko
+mysql-connector-python
+cryptography
+werkzeug
+python-dotenv
