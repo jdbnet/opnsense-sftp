@@ -279,4 +279,27 @@ class Database:
         except Error as e:
             logger.error(f"Error getting instance by ID: {e}")
             return None
+    
+    def get_latest_backup_per_instance(self) -> List[Dict[str, Any]]:
+        """Get the latest backup date and time for each instance."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("""
+                    SELECT 
+                        o.id as instance_id,
+                        o.name as instance_name,
+                        o.identifier as instance_identifier,
+                        MAX(b.uploaded_at) as latest_backup
+                    FROM opnsense_instances o
+                    LEFT JOIN backups b ON o.id = b.instance_id
+                    GROUP BY o.id, o.name, o.identifier
+                    ORDER BY o.name
+                """)
+                results = cursor.fetchall()
+                cursor.close()
+                return results
+        except Error as e:
+            logger.error(f"Error getting latest backup per instance: {e}")
+            return []
 
