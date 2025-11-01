@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0](https://github.com/JDB-NET/opnsense-sftp/compare/v1.1.2...v1.2.0) (2025-11-01)
+
+
+### Features
+
+* :sparkles: latest backup api endpoint - /api/backups/latest ([703ab3b](https://github.com/JDB-NET/opnsense-sftp/commit/703ab3b07da0b60f91d674fd6f4a39d3c45ae1e6))
+
 ## [1.1.2](https://github.com/JDB-NET/opnsense-sftp/compare/v1.1.1...v1.1.2) (2025-11-01)
 
 
