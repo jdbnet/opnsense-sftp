@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/JDB-NET/opnsense-sftp/compare/v1.1.0...v1.1.1) (2025-11-01)
+
+
+### Bug Fixes
+
+* :bug: allow writing packages ([dbdeacd](https://github.com/JDB-NET/opnsense-sftp/commit/dbdeacdf7de133a0db4c44c13828458ff08a028a))
+
 ## [1.1.0](https://github.com/JDB-NET/opnsense-sftp/compare/v1.0.0...v1.1.0) (2025-11-01)
 
 
