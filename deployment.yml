@@ -38,7 +38,7 @@ spec:
             - name: ADMIN_PASSWORD
               value: "CVk7QKIB3MjZ8mt6MxES"
             - name: SFTP_PUBLIC_HOST
-              value: "opnsense-sftp.jdb143.uk"
+              value: "10.10.2.29"
             - name: SFTP_PUBLIC_PORT
               value: "30222"
           volumeMounts:
