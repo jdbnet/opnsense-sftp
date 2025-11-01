@@ -19,9 +19,9 @@ spec:
           imagePullPolicy: Always
           ports:
             - containerPort: 5000
-              name: "opnsense-sftp"
+              name: "opnsense-web"
             - containerPort: 2222
-              name: "opnsense-sftp-sftp"
+              name: "opnsense-sftp"
           env:
             - name: DB_HOST
               value: "10.10.2.27"
@@ -59,7 +59,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: opnsense-sftp-ingress-service
+  name: opnsense-web-ingress-service
   namespace: opnsense-sftp
 spec:
   selector:
@@ -73,7 +73,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: opnsense-sftp-sftp-service
+  name: opnsense-sftp-service
   namespace: opnsense-sftp
 spec:
   type: NodePort
@@ -100,7 +100,7 @@ spec:
         path: "/"
         backend:
           service:
-            name: opnsense-sftp-ingress-service
+            name: opnsense-web-ingress-service
             port:
               number: 80
 ---
