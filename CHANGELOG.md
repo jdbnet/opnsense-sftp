@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.2](https://github.com/JDB-NET/opnsense-sftp/compare/v1.1.1...v1.1.2) (2025-11-01)
+
+
+### Bug Fixes
+
+* :bug: k3s character limit ([2b91c19](https://github.com/JDB-NET/opnsense-sftp/commit/2b91c19afbf95f9192b43b46ebdc7816bb407db9))
+
 ## [1.1.1](https://github.com/JDB-NET/opnsense-sftp/compare/v1.1.0...v1.1.1) (2025-11-01)
 
 
