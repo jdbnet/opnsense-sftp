@@ -24,7 +24,7 @@ spec:
               name: "opnsense-sftp"
           env:
             - name: DB_HOST
-              value: "10.10.2.27"
+              value: "10.10.25.4"
             - name: DB_PORT
               value: "3306"
             - name: DB_NAME
@@ -38,7 +38,7 @@ spec:
             - name: ADMIN_PASSWORD
               value: "CVk7QKIB3MjZ8mt6MxES"
             - name: SFTP_PUBLIC_HOST
-              value: "10.10.2.29"
+              value: "10.10.25.8"
             - name: SFTP_PUBLIC_PORT
               value: "30222"
           volumeMounts:
@@ -49,12 +49,12 @@ spec:
       volumes:
         - name: keys-volume
           nfs:
-            server: 10.10.2.5
-            path: /srv/Backups/OPNsense/keys
+            server: 10.10.25.2
+            path: /srv/k3s/opnsense/keys
         - name: backups-volume
           nfs:
-            server: 10.10.2.5
-            path: /srv/Backups/OPNsense/backups
+            server: 10.10.25.2
+            path: /srv/k3s/opnsense/backups
 ---
 apiVersion: v1
 kind: Service
