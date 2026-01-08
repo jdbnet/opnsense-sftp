@@ -36,17 +36,15 @@ docker run -d \
   -e SFTP_PUBLIC_PORT=30222 \
   -v /path/to/keys:/app/keys \
   -v /path/to/backups:/app/backups \
-  ghcr.io/jdb-net/opnsense-sftp:latest
+  cr.jdbnet.co.uk/public/opnsense-sftp:latest
 ```
 
 ### Docker Compose
 
 ```yaml
-version: '3.8'
-
 services:
   opnsense-sftp:
-    image: ghcr.io/jdb-net/opnsense-sftp:latest
+    image: cr.jdbnet.co.uk/public/opnsense-sftp:latest
     container_name: opnsense-sftp
     restart: unless-stopped
     ports:

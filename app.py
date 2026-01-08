@@ -22,22 +22,8 @@ load_dotenv()
 setup_logging()
 logger = get_logger(__name__)
 
-# Read version from VERSION file or environment
 def get_version():
-    """Get application version from VERSION file or environment variable."""
-    # Check environment variable first (set during Docker build)
-    env_version = os.getenv('APP_VERSION')
-    if env_version and env_version != 'dev':
-        return env_version
-    
-    # Fall back to VERSION file
-    try:
-        version_path = Path(__file__).parent / 'VERSION'
-        if version_path.exists():
-            return version_path.read_text().strip()
-    except Exception:
-        pass
-    return 'dev'
+    return os.getenv('APP_VERSION', 'dev')
 
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'change-this-secret-key-in-production')

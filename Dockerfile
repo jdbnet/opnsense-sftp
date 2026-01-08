@@ -1,11 +1,9 @@
 FROM python:3.13-slim
+LABEL org.opencontainers.image.vendor="JDB-NET"
 WORKDIR /app
-
-# Build argument for version
-ARG VERSION=dev
-ENV APP_VERSION=${VERSION}
-
 COPY . /app
+ARG VERSION=unknown
+ENV APP_VERSION=${VERSION}
 RUN pip install -r requirements.txt \
     && apt-get update \
     && apt-get install curl -y \
