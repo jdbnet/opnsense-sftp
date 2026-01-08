@@ -1,0 +1,60 @@
+name: Release
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [closed]
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true && startsWith(github.head_ref, 'v')
+    runs-on: build-htz-01
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract Version
+        id: get_version
+        run: echo "VERSION=${{ github.head_ref }}" >> $GITHUB_OUTPUT
+
+      - name: Generate Changelog
+        id: changelog
+        uses: https://github.com/metcalfc/changelog-generator@v4.6.2
+        with:
+          myToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        run: |
+          VERSION=${{ steps.get_version.outputs.VERSION }}
+          docker build -t cr.jdbnet.co.uk/public/opnsense-sftp:$VERSION \
+                       -t cr.jdbnet.co.uk/public/opnsense-sftp:latest \
+                       --build-arg VERSION=$VERSION \
+                       .
+          docker push cr.jdbnet.co.uk/public/opnsense-sftp:$VERSION
+          docker push cr.jdbnet.co.uk/public/opnsense-sftp:latest
+
+      - name: Create Gitea Release
+        uses: https://gitea.com/actions/gitea-release-action@v1
+        with:
+          tag_name: ${{ steps.get_version.outputs.VERSION }}
+          name: ${{ steps.get_version.outputs.VERSION }}
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+
+  deploy:
+    name: Deploy to Kubernetes
+    needs: release
+    runs-on: k3s-internal-htz-01
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Deploy to Kubernetes
+        run: |
+          sudo kubectl replace -f deployment.yml --grace-period=60 --force
