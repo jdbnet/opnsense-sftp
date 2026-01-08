@@ -7,18 +7,19 @@
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='opnsense.png') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/output.css') }}">
 </head>
-<body class="bg-neutral-900 text-neutral-100 min-h-screen">
+<body class="bg-neutral-900 text-neutral-100 min-h-screen flex flex-col">
     <nav class="bg-neutral-800 border-b border-neutral-700">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between h-16">
                 <div class="flex items-center">
                     <a href="{{ url_for('dashboard') }}" class="flex items-center space-x-4">
                         <img src="{{ url_for('static', filename='opnsense.png') }}" alt="OPNsense" class="h-8 w-8">
-                        <span class="text-neutral-400">Backup Manager</span>
+                        <span class="text-neutral-400 hidden sm:inline">Backup Manager</span>
                     </a>
                 </div>
                 {% if session.user_id %}
-                <div class="flex items-center space-x-4">
+                <!-- Desktop Navigation -->
+                <div class="hidden md:flex items-center space-x-4">
                     <a href="{{ url_for('dashboard') }}" class="text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                         Dashboard
                     </a>
@@ -34,12 +35,42 @@
                         Logout
                     </a>
                 </div>
+                
+                <!-- Mobile Menu Button -->
+                <div class="md:hidden flex items-center">
+                    <button id="mobile-menu-btn" class="inline-flex items-center justify-center p-2 rounded-md text-neutral-300 hover:text-orange-500 hover:bg-neutral-700 focus:outline-none transition-colors">
+                        <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                    </button>
+                </div>
                 {% endif %}
             </div>
+            
+            <!-- Mobile Navigation Menu -->
+            {% if session.user_id %}
+            <div id="mobile-menu" class="hidden md:hidden pb-4 space-y-1">
+                <a href="{{ url_for('dashboard') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
+                    Dashboard
+                </a>
+                <a href="{{ url_for('instances') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
+                    Instances
+                </a>
+                <a href="{{ url_for('backups') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
+                    Backups
+                </a>
+                <div class="border-t border-neutral-700 pt-2 mt-2">
+                    <div class="px-3 py-2 text-sm text-neutral-400">{{ session.username }}</div>
+                    <a href="{{ url_for('logout') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
+                        Logout
+                    </a>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </nav>
 
-    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
                 <div class="mb-6 space-y-2">
@@ -65,6 +96,18 @@
             </p>
         </div>
     </footer>
+    
+    <script>
+        // Mobile menu toggle
+        const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+        const mobileMenu = document.getElementById('mobile-menu');
+        
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', function() {
+                mobileMenu.classList.toggle('hidden');
+            });
+        }
+    </script>
 </body>
 </html>
 
