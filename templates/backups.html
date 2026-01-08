@@ -9,9 +9,40 @@
         <p class="text-neutral-400">View and download your backup files</p>
     </div>
 
+    <!-- Filter Section -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <h2 class="text-lg font-bold text-neutral-100 mb-4">Filters</h2>
+        <form method="get" class="flex flex-col sm:flex-row gap-4">
+            <div class="flex-1">
+                <label for="instance_id" class="block text-sm font-medium text-neutral-300 mb-2">Instance</label>
+                <select id="instance_id" name="instance_id" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                    <option value="">All Instances</option>
+                    {% for instance in all_instances %}
+                    <option value="{{ instance.id }}" {% if filter_instance_id == instance.id %}selected{% endif %}>
+                        {{ instance.name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="flex gap-2 sm:self-end">
+                <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                    Apply Filter
+                </button>
+                {% if filter_instance_id %}
+                <a href="{{ url_for('backups') }}" class="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm font-medium transition-colors">
+                    Clear Filter
+                </a>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+
     <div class="bg-neutral-800 rounded-lg border border-neutral-700 overflow-hidden">
-        <div class="px-6 py-4 border-b border-neutral-700">
+        <div class="px-6 py-4 border-b border-neutral-700 flex justify-between items-center">
             <h2 class="text-xl font-bold text-neutral-100">Backup Files</h2>
+            {% if total_backups > 0 %}
+            <span class="text-sm text-neutral-400">{{ total_backups }} backup{% if total_backups != 1 %}s{% endif %}</span>
+            {% endif %}
         </div>
         <div class="overflow-x-auto">
             <table class="w-full">
@@ -51,7 +82,11 @@
                     {% else %}
                         <tr>
                             <td colspan="5" class="px-6 py-8 text-center text-neutral-400">
-                                No backups found. Configure your OPNsense instances to start receiving backups.
+                                {% if filter_instance_id %}
+                                    No backups found for the selected instance.
+                                {% else %}
+                                    No backups found. Configure your OPNsense instances to start receiving backups.
+                                {% endif %}
                             </td>
                         </tr>
                     {% endif %}
@@ -59,6 +94,61 @@
             </table>
         </div>
     </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <div class="flex flex-col sm:flex-row gap-4 items-center justify-between">
+            <div class="text-sm text-neutral-400">
+                Page <span class="font-bold text-neutral-100">{{ current_page }}</span> of <span class="font-bold text-neutral-100">{{ total_pages }}</span>
+                ({{ (current_page - 1) * per_page + 1 }}-{{ [current_page * per_page, total_backups]|min }} of {{ total_backups }} backups)
+            </div>
+            <div class="flex gap-2 flex-wrap justify-center">
+                {% if current_page > 1 %}
+                <a href="{{ url_for('backups', page=1, instance_id=filter_instance_id or '') }}" class="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm transition-colors">
+                    First
+                </a>
+                <a href="{{ url_for('backups', page=current_page - 1, instance_id=filter_instance_id or '') }}" class="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm transition-colors">
+                    Previous
+                </a>
+                {% endif %}
+                
+                <!-- Page Numbers -->
+                {% set start_page = [current_page - 2, 1]|max %}
+                {% set end_page = [current_page + 2, total_pages]|min %}
+                
+                {% if start_page > 1 %}
+                <span class="px-3 py-2 text-neutral-400">...</span>
+                {% endif %}
+                
+                {% for page_num in range(start_page, end_page + 1) %}
+                    {% if page_num == current_page %}
+                    <button class="px-3 py-2 bg-orange-600 text-white rounded-md text-sm font-medium">
+                        {{ page_num }}
+                    </button>
+                    {% else %}
+                    <a href="{{ url_for('backups', page=page_num, instance_id=filter_instance_id or '') }}" class="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm transition-colors">
+                        {{ page_num }}
+                    </a>
+                    {% endif %}
+                {% endfor %}
+                
+                {% if end_page < total_pages %}
+                <span class="px-3 py-2 text-neutral-400">...</span>
+                {% endif %}
+                
+                {% if current_page < total_pages %}
+                <a href="{{ url_for('backups', page=current_page + 1, instance_id=filter_instance_id or '') }}" class="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm transition-colors">
+                    Next
+                </a>
+                <a href="{{ url_for('backups', page=total_pages, instance_id=filter_instance_id or '') }}" class="px-3 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm transition-colors">
+                    Last
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 {% endblock %}
 
