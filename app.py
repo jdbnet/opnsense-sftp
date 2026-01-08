@@ -232,17 +232,74 @@ def instance_detail(instance_id):
 @app.route('/backups')
 @login_required
 def backups():
-    """List all backups."""
+    """List all backups with pagination and filtering."""
     all_backups = db.get_all_backups()
     
     # Add instance info to each backup
+    instances_map = {}
     for backup in all_backups:
-        instance = db.get_instance_by_id(backup['instance_id'])
+        if backup['instance_id'] not in instances_map:
+            instance = db.get_instance_by_id(backup['instance_id'])
+            instances_map[backup['instance_id']] = instance
+        
+        instance = instances_map.get(backup['instance_id'])
         if instance:
             backup['instance_name'] = instance['name']
             backup['instance_identifier'] = instance['identifier']
     
-    return render_template('backups.html', backups=all_backups)
+    # Get unique instances for filter dropdown
+    all_instances = []
+    seen_ids = set()
+    for backup in all_backups:
+        instance_id = backup['instance_id']
+        if instance_id not in seen_ids and backup.get('instance_name'):
+            all_instances.append({
+                'id': instance_id,
+                'name': backup['instance_name'],
+                'identifier': backup['instance_identifier']
+            })
+            seen_ids.add(instance_id)
+    
+    # Sort instances by name
+    all_instances.sort(key=lambda x: x['name'])
+    
+    # Get filter parameter from query string
+    filter_instance_id = request.args.get('instance_id', type=int)
+    
+    # Filter backups if instance filter is applied
+    if filter_instance_id:
+        filtered_backups = [b for b in all_backups if b['instance_id'] == filter_instance_id]
+    else:
+        filtered_backups = all_backups
+    
+    # Sort by upload date descending (newest first)
+    filtered_backups.sort(key=lambda x: x['uploaded_at'] or datetime.min, reverse=True)
+    
+    # Pagination
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    total_backups = len(filtered_backups)
+    total_pages = (total_backups + per_page - 1) // per_page
+    
+    # Ensure page is valid
+    if page < 1:
+        page = 1
+    elif page > total_pages and total_pages > 0:
+        page = total_pages
+    
+    # Get backups for current page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated_backups = filtered_backups[start_idx:end_idx]
+    
+    return render_template('backups.html', 
+                         backups=paginated_backups,
+                         all_instances=all_instances,
+                         current_page=page,
+                         total_pages=total_pages,
+                         total_backups=total_backups,
+                         filter_instance_id=filter_instance_id,
+                         per_page=per_page)
 
 
 @app.route('/backups/<int:backup_id>/download')
