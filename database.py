@@ -5,6 +5,7 @@ import mysql.connector
 from mysql.connector import Error
 import os
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from logger_config import get_logger
@@ -95,6 +96,32 @@ class Database:
                         uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         FOREIGN KEY (instance_id) REFERENCES opnsense_instances(id) ON DELETE CASCADE
                     )
+                """)
+
+                # Create backup pruning settings table (single policy row).
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS backup_prune_settings (
+                        id INT PRIMARY KEY,
+                        enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                        scope_type VARCHAR(10) NOT NULL DEFAULT 'all', /* 'all' or 'instance' */
+                        scope_instance_id INT NULL,
+                        keep_days INT NULL,
+                        keep_count INT NULL,
+                        interval_seconds INT NOT NULL DEFAULT 86400,
+                        last_run_at TIMESTAMP NULL,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (scope_instance_id) REFERENCES opnsense_instances(id) ON DELETE SET NULL
+                    )
+                """)
+
+                # Ensure we have exactly one settings row.
+                cursor.execute("""
+                    INSERT INTO backup_prune_settings
+                        (id, enabled, scope_type, scope_instance_id, keep_days, keep_count, interval_seconds, last_run_at)
+                    VALUES
+                        (1, FALSE, 'all', NULL, NULL, NULL, 86400, NULL)
+                    ON DUPLICATE KEY UPDATE
+                        id = id
                 """)
                 
                 conn.commit()
@@ -302,4 +329,104 @@ class Database:
         except Error as e:
             logger.error(f"Error getting latest backup per instance: {e}")
             return []
+
+    def get_backup_prune_settings(self) -> Dict[str, Any]:
+        """Get automated backup prune settings (single row)."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM backup_prune_settings WHERE id = %s", (1,))
+                row = cursor.fetchone()
+                cursor.close()
+                if row:
+                    return row
+        except Error as e:
+            logger.error(f"Error getting backup prune settings: {e}")
+        # Safe defaults if table/row doesn't exist yet.
+        return {
+            "id": 1,
+            "enabled": False,
+            "scope_type": "all",
+            "scope_instance_id": None,
+            "keep_days": None,
+            "keep_count": None,
+            "interval_seconds": 86400,
+            "last_run_at": None,
+            "updated_at": None,
+        }
+
+    def upsert_backup_prune_settings(
+        self,
+        enabled: bool,
+        scope_type: str,
+        scope_instance_id: Optional[int],
+        keep_days: Optional[int],
+        keep_count: Optional[int],
+        interval_seconds: int,
+    ) -> None:
+        """Upsert automated backup prune settings (single row)."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO backup_prune_settings
+                        (id, enabled, scope_type, scope_instance_id, keep_days, keep_count, interval_seconds)
+                    VALUES
+                        (1, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        enabled = VALUES(enabled),
+                        scope_type = VALUES(scope_type),
+                        scope_instance_id = VALUES(scope_instance_id),
+                        keep_days = VALUES(keep_days),
+                        keep_count = VALUES(keep_count),
+                        interval_seconds = VALUES(interval_seconds)
+                    """,
+                    (
+                        bool(enabled),
+                        scope_type,
+                        scope_instance_id,
+                        keep_days,
+                        keep_count,
+                        interval_seconds,
+                    ),
+                )
+                conn.commit()
+                cursor.close()
+        except Error as e:
+            logger.error(f"Error updating backup prune settings: {e}")
+
+    def set_backup_prune_last_run_at(self, last_run_at: datetime) -> None:
+        """Update last_run_at after a prune run."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE backup_prune_settings SET last_run_at = %s WHERE id = %s",
+                    (last_run_at, 1),
+                )
+                conn.commit()
+                cursor.close()
+        except Error as e:
+            logger.error(f"Error updating backup prune last_run_at: {e}")
+
+    def delete_backups_by_ids(self, backup_ids: List[int]) -> int:
+        """Delete backup records by IDs (returns number of deleted rows)."""
+        if not backup_ids:
+            return 0
+        try:
+            placeholders = ", ".join(["%s"] * len(backup_ids))
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"DELETE FROM backups WHERE id IN ({placeholders})",
+                    tuple(backup_ids),
+                )
+                affected = cursor.rowcount or 0
+                conn.commit()
+                cursor.close()
+                return affected
+        except Error as e:
+            logger.error(f"Error deleting backups by ids: {e}")
+            return 0
 
