@@ -10,7 +10,7 @@
     </div>
 
     <!-- Stats Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div class="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
             <div class="flex items-center justify-between">
                 <div>
@@ -34,6 +34,30 @@
                 <div class="p-3 bg-orange-500/20 rounded-lg">
                     <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4"></path>
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-neutral-800 rounded-lg p-6 border border-neutral-700">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-neutral-400 text-sm font-medium">Total Backup Size</p>
+                    <p class="text-3xl font-bold text-orange-500 mt-2">
+                        {% if total_backup_size >= 1024 * 1024 * 1024 %}
+                            {{ "%.2f"|format(total_backup_size / 1024 / 1024 / 1024) }} GB
+                        {% elif total_backup_size >= 1024 * 1024 %}
+                            {{ "%.2f"|format(total_backup_size / 1024 / 1024) }} MB
+                        {% elif total_backup_size >= 1024 %}
+                            {{ "%.2f"|format(total_backup_size / 1024) }} KB
+                        {% else %}
+                            {{ total_backup_size }} B
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="p-3 bg-orange-500/20 rounded-lg">
+                    <svg class="w-8 h-8 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7h16M4 12h16m-7 5h7"></path>
                     </svg>
                 </div>
             </div>

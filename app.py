@@ -121,6 +121,7 @@ def dashboard():
     """Main dashboard."""
     instances = db.get_all_instances()
     all_backups = db.get_all_backups()
+    total_backup_size = sum((backup.get('file_size') or 0) for backup in all_backups)
     
     # Add instance info to each backup
     for backup in all_backups:
@@ -129,7 +130,13 @@ def dashboard():
             backup['instance_name'] = instance['name']
             backup['instance_identifier'] = instance['identifier']
     
-    return render_template('dashboard.html', instances=instances, backups=all_backups, sftp_server=sftp_server)
+    return render_template(
+        'dashboard.html',
+        instances=instances,
+        backups=all_backups,
+        sftp_server=sftp_server,
+        total_backup_size=total_backup_size
+    )
 
 
 @app.route('/instances')
