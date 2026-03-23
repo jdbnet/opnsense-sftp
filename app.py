@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 import threading
 import time
 from dotenv import load_dotenv
+import pyotp
 
 from database import Database
 from ssh_keys import SSHKeyManager
@@ -56,8 +57,11 @@ try:
     default_user = db.get_user_by_username('admin')
     if not default_user:
         default_password = os.getenv('ADMIN_PASSWORD', 'admin')
-        db.create_user('admin', generate_password_hash(default_password))
+        db.create_user('admin', generate_password_hash(default_password), is_admin=True)
         logger.warning("Created default admin user (password: 'admin' - CHANGE THIS!)")
+    elif not default_user.get('is_admin'):
+        db.update_user_admin(default_user['id'], True)
+        logger.info("Updated default admin user with admin privileges")
     logger.info("Database initialized successfully")
 except Exception as e:
     logger.error(f"Database initialization failed: {e}")
@@ -80,6 +84,34 @@ def login_required(f):
     return decorated_function
 
 
+def admin_required(f):
+    """Decorator to require admin privileges."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return redirect(url_for('login'))
+        if not session.get('is_admin'):
+            flash('Admin access required', 'error')
+            return redirect(url_for('dashboard'))
+        return f(*args, **kwargs)
+    return decorated_function
+
+
+def get_current_user():
+    """Get current logged-in user from database."""
+    user_id = session.get('user_id')
+    if not user_id:
+        return None
+    return db.get_user_by_id(user_id)
+
+
+def _sign_in_user(user):
+    """Set session keys for authenticated user."""
+    session['user_id'] = user['id']
+    session['username'] = user['username']
+    session['is_admin'] = bool(user.get('is_admin'))
+
+
 @app.route('/')
 def index():
     """Redirect to dashboard if logged in, otherwise to login."""
@@ -91,6 +123,9 @@ def index():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     """Login page."""
+    if session.get('totp_pending_user_id'):
+        return redirect(url_for('login_totp'))
+
     if request.method == 'POST':
         username = request.form.get('username')
         password = request.form.get('password')
@@ -101,8 +136,14 @@ def login():
         
         user = db.get_user_by_username(username)
         if user and check_password_hash(user['password_hash'], password):
-            session['user_id'] = user['id']
-            session['username'] = user['username']
+            if user.get('totp_enabled'):
+                # Step 1 complete: require second factor on separate page.
+                session.clear()
+                session['totp_pending_user_id'] = user['id']
+                return redirect(url_for('login_totp'))
+
+            session.clear()
+            _sign_in_user(user)
             return redirect(url_for('dashboard'))
         else:
             flash('Invalid username or password', 'error')
@@ -110,11 +151,239 @@ def login():
     return render_template('login.html')
 
 
+@app.route('/login/totp', methods=['GET', 'POST'])
+def login_totp():
+    """Second-factor login page for users with TOTP enabled."""
+    pending_user_id = session.get('totp_pending_user_id')
+    if not pending_user_id:
+        return redirect(url_for('login'))
+
+    user = db.get_user_by_id(pending_user_id)
+    if not user or not user.get('totp_enabled'):
+        session.pop('totp_pending_user_id', None)
+        flash('TOTP session expired. Please log in again.', 'error')
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        otp_code = (request.form.get('otp_code') or '').strip().replace(' ', '')
+        if not otp_code:
+            flash('TOTP code is required', 'error')
+            return render_template('login_totp.html', username=user['username'])
+
+        totp_secret = user.get('totp_secret')
+        if not totp_secret:
+            session.pop('totp_pending_user_id', None)
+            flash('TOTP is enabled but no secret is configured. Contact an admin.', 'error')
+            return redirect(url_for('login'))
+
+        is_valid = pyotp.TOTP(totp_secret).verify(otp_code, valid_window=1)
+        if not is_valid:
+            flash('Invalid TOTP code', 'error')
+            return render_template('login_totp.html', username=user['username'])
+
+        session.clear()
+        _sign_in_user(user)
+        return redirect(url_for('dashboard'))
+
+    return render_template('login_totp.html', username=user['username'])
+
+
 @app.route('/logout')
 def logout():
     """Logout and clear session."""
     session.clear()
     return redirect(url_for('login'))
+
+
+@app.route('/profile', methods=['GET', 'POST'])
+@login_required
+def profile():
+    """Manage current user's profile: username, password, and TOTP."""
+    user = get_current_user()
+    if not user:
+        session.clear()
+        return redirect(url_for('login'))
+
+    if request.method == 'POST':
+        action = request.form.get('action')
+
+        if action == 'update_username':
+            new_username = (request.form.get('new_username') or '').strip()
+            if not new_username:
+                flash('Username is required', 'error')
+                return redirect(url_for('profile'))
+
+            existing = db.get_user_by_username(new_username)
+            if existing and existing['id'] != user['id']:
+                flash('That username is already in use', 'error')
+                return redirect(url_for('profile'))
+
+            if db.update_user_username(user['id'], new_username):
+                session['username'] = new_username
+                flash('Username updated successfully', 'success')
+            else:
+                flash('Failed to update username', 'error')
+            return redirect(url_for('profile'))
+
+        if action == 'update_password':
+            current_password = request.form.get('current_password') or ''
+            new_password = request.form.get('new_password') or ''
+            confirm_password = request.form.get('confirm_password') or ''
+
+            if not check_password_hash(user['password_hash'], current_password):
+                flash('Current password is incorrect', 'error')
+                return redirect(url_for('profile'))
+            if len(new_password) < 8:
+                flash('New password must be at least 8 characters', 'error')
+                return redirect(url_for('profile'))
+            if new_password != confirm_password:
+                flash('New password and confirmation do not match', 'error')
+                return redirect(url_for('profile'))
+
+            if db.update_user_password(user['id'], generate_password_hash(new_password)):
+                flash('Password updated successfully', 'success')
+            else:
+                flash('Failed to update password', 'error')
+            return redirect(url_for('profile'))
+
+        if action == 'generate_totp_secret':
+            secret = pyotp.random_base32()
+            if db.update_user_totp(user['id'], secret, False):
+                flash('Generated a new TOTP secret. Verify a code to enable TOTP.', 'success')
+            else:
+                flash('Failed to generate TOTP secret', 'error')
+            return redirect(url_for('profile'))
+
+        if action == 'enable_totp':
+            otp_code = (request.form.get('otp_code') or '').strip().replace(' ', '')
+            fresh_user = db.get_user_by_id(user['id'])
+            totp_secret = fresh_user.get('totp_secret') if fresh_user else None
+
+            if not totp_secret:
+                flash('No TOTP secret found. Generate one first.', 'error')
+                return redirect(url_for('profile'))
+
+            if not pyotp.TOTP(totp_secret).verify(otp_code, valid_window=1):
+                flash('Invalid TOTP code. Please try again.', 'error')
+                return redirect(url_for('profile'))
+
+            if db.update_user_totp(user['id'], totp_secret, True):
+                flash('TOTP enabled for your account.', 'success')
+            else:
+                flash('Failed to enable TOTP', 'error')
+            return redirect(url_for('profile'))
+
+        if action == 'disable_totp':
+            if db.update_user_totp(user['id'], None, False):
+                flash('TOTP disabled.', 'success')
+            else:
+                flash('Failed to disable TOTP', 'error')
+            return redirect(url_for('profile'))
+
+        flash('Unknown action', 'error')
+        return redirect(url_for('profile'))
+
+    user = get_current_user()
+    if user.get('totp_secret'):
+        totp_uri = pyotp.TOTP(user['totp_secret']).provisioning_uri(
+            name=user['username'],
+            issuer_name='OPNsense Backup Manager',
+        )
+    else:
+        totp_uri = None
+    return render_template('profile.html', user=user, totp_uri=totp_uri)
+
+
+@app.route('/users')
+@login_required
+@admin_required
+def users():
+    """List and manage users."""
+    all_users = db.get_all_users()
+    return render_template('users.html', users=all_users)
+
+
+@app.route('/users/create', methods=['POST'])
+@login_required
+@admin_required
+def create_user():
+    """Create a user account."""
+    username = (request.form.get('username') or '').strip()
+    password = request.form.get('password') or ''
+    is_admin = bool(request.form.get('is_admin'))
+
+    if not username or not password:
+        flash('Username and password are required', 'error')
+        return redirect(url_for('users'))
+    if len(password) < 8:
+        flash('Password must be at least 8 characters', 'error')
+        return redirect(url_for('users'))
+    if db.get_user_by_username(username):
+        flash('Username already exists', 'error')
+        return redirect(url_for('users'))
+
+    user_id = db.create_user(username, generate_password_hash(password), is_admin=is_admin)
+    if user_id:
+        flash('User created successfully', 'success')
+    else:
+        flash('Failed to create user', 'error')
+    return redirect(url_for('users'))
+
+
+@app.route('/users/<int:user_id>/toggle-admin', methods=['POST'])
+@login_required
+@admin_required
+def toggle_user_admin(user_id):
+    """Toggle admin role for a user."""
+    target_user = db.get_user_by_id(user_id)
+    if not target_user:
+        flash('User not found', 'error')
+        return redirect(url_for('users'))
+
+    all_users = db.get_all_users()
+    admin_count = sum(1 for u in all_users if u.get('is_admin'))
+
+    new_is_admin = not bool(target_user.get('is_admin'))
+    if not new_is_admin and admin_count <= 1:
+        flash('Cannot remove admin role from the last admin user', 'error')
+        return redirect(url_for('users'))
+
+    if target_user['id'] == session.get('user_id') and not new_is_admin:
+        flash('You cannot remove your own admin role', 'error')
+        return redirect(url_for('users'))
+
+    if db.update_user_admin(user_id, new_is_admin):
+        flash('User admin role updated', 'success')
+    else:
+        flash('Failed to update user admin role', 'error')
+    return redirect(url_for('users'))
+
+
+@app.route('/users/<int:user_id>/delete', methods=['POST'])
+@login_required
+@admin_required
+def delete_user(user_id):
+    """Delete a user account."""
+    if user_id == session.get('user_id'):
+        flash('You cannot delete your own account', 'error')
+        return redirect(url_for('users'))
+
+    target_user = db.get_user_by_id(user_id)
+    if not target_user:
+        flash('User not found', 'error')
+        return redirect(url_for('users'))
+
+    all_users = db.get_all_users()
+    admin_count = sum(1 for u in all_users if u.get('is_admin'))
+    if target_user.get('is_admin') and admin_count <= 1:
+        flash('Cannot delete the last admin user', 'error')
+        return redirect(url_for('users'))
+
+    if db.delete_user(user_id):
+        flash('User deleted successfully', 'success')
+    else:
+        flash('Failed to delete user', 'error')
+    return redirect(url_for('users'))
 
 
 @app.route('/dashboard')
