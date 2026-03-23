@@ -44,17 +44,3 @@ jobs:
           body: ${{ steps.changelog.outputs.changelog }}
           draft: false
           prerelease: false
-
-  deploy:
-    name: Deploy to Kubernetes
-    needs: release
-    runs-on: k3s-internal-htz-01
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Deploy to Kubernetes
-        run: |
-          sudo kubectl replace -f deployment.yml --grace-period=60 --force

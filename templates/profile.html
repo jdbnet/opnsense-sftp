@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Profile - OPNsense Backup Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div>
+        <h1 class="text-3xl font-bold text-neutral-100 mb-2">Profile</h1>
+        <p class="text-neutral-400">Manage your username, password, and multi-factor authentication.</p>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+            <h2 class="text-xl font-bold text-neutral-100 mb-4">Change Username</h2>
+            <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
+                <input type="hidden" name="action" value="update_username">
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Current Username</label>
+                    <input type="text" disabled value="{{ user.username }}" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-400">
+                </div>
+                <div>
+                    <label for="new_username" class="block text-sm font-medium text-neutral-300 mb-2">New Username</label>
+                    <input id="new_username" name="new_username" type="text" required class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">Update Username</button>
+            </form>
+        </div>
+
+        <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+            <h2 class="text-xl font-bold text-neutral-100 mb-4">Change Password</h2>
+            <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
+                <input type="hidden" name="action" value="update_password">
+                <div>
+                    <label for="current_password" class="block text-sm font-medium text-neutral-300 mb-2">Current Password</label>
+                    <input id="current_password" name="current_password" type="password" required class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                </div>
+                <div>
+                    <label for="new_password" class="block text-sm font-medium text-neutral-300 mb-2">New Password</label>
+                    <input id="new_password" name="new_password" type="password" required class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                </div>
+                <div>
+                    <label for="confirm_password" class="block text-sm font-medium text-neutral-300 mb-2">Confirm New Password</label>
+                    <input id="confirm_password" name="confirm_password" type="password" required class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                </div>
+                <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">Update Password</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6 space-y-5">
+        <h2 class="text-xl font-bold text-neutral-100">Two-Factor Authentication (TOTP)</h2>
+        <p class="text-neutral-400 text-sm">
+            Use an authenticator app (Aegis, Authy, 1Password, Google Authenticator, etc.) to secure your account.
+        </p>
+
+        {% if user.totp_enabled %}
+            <div class="bg-green-900/30 border border-green-700 rounded-md p-4 text-sm text-green-300">
+                TOTP is currently enabled for your account.
+            </div>
+            <form method="post" action="{{ url_for('profile') }}">
+                <input type="hidden" name="action" value="disable_totp">
+                <button type="submit" class="px-4 py-2 bg-red-700 hover:bg-red-600 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                    Disable TOTP
+                </button>
+            </form>
+        {% else %}
+            {% if not user.totp_secret %}
+                <form method="post" action="{{ url_for('profile') }}">
+                    <input type="hidden" name="action" value="generate_totp_secret">
+                    <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                        Generate TOTP Secret
+                    </button>
+                </form>
+            {% else %}
+                <div class="bg-neutral-900 border border-neutral-700 rounded-md p-4 space-y-2">
+                    <p class="text-sm text-neutral-300"><strong>Scan QR Code:</strong></p>
+                    <div id="totp-qrcode" class="bg-white p-2 rounded-md inline-block"></div>
+                    <p class="text-sm text-neutral-300"><strong>Secret:</strong> <code class="text-orange-400">{{ user.totp_secret }}</code></p>
+                    <p class="text-sm text-neutral-300"><strong>OTPAuth URI:</strong></p>
+                    <code id="totp-uri" class="text-xs text-orange-400 break-all block">{{ totp_uri }}</code>
+                </div>
+                <form method="post" action="{{ url_for('profile') }}" class="space-y-4">
+                    <input type="hidden" name="action" value="enable_totp">
+                    <div>
+                        <label for="otp_code" class="block text-sm font-medium text-neutral-300 mb-2">Enter a code from your authenticator app</label>
+                        <input id="otp_code" name="otp_code" type="text" inputmode="numeric" required class="w-full max-w-xs px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors" placeholder="123456">
+                    </div>
+                    <div class="flex gap-3">
+                        <button type="submit" class="px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                            Verify and Enable
+                        </button>
+                        <button formaction="{{ url_for('profile') }}" name="action" value="generate_totp_secret" class="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                            Regenerate Secret
+                        </button>
+                    </div>
+                </form>
+            {% endif %}
+        {% endif %}
+    </div>
+</div>
+{% if totp_uri %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    (function() {
+        const qrContainer = document.getElementById('totp-qrcode');
+        const uriElement = document.getElementById('totp-uri');
+        if (!qrContainer || !uriElement) return;
+
+        const otpUri = uriElement.textContent.trim();
+        if (!otpUri) return;
+
+        new QRCode(qrContainer, {
+            text: otpUri,
+            width: 192,
+            height: 192,
+            correctLevel: QRCode.CorrectLevel.M
+        });
+    })();
+</script>
+{% endif %}
+{% endblock %}
