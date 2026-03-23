@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+
+{% block title %}Prune Backups - OPNsense Backup Manager{% endblock %}
+
+{% block content %}
+<div class="space-y-8">
+    <div>
+        <h1 class="text-3xl font-bold text-neutral-100 mb-2">Prune Backups</h1>
+        <p class="text-neutral-400">Delete old backups manually or configure automated retention.</p>
+    </div>
+
+    <!-- Manual Pruning -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-neutral-100">Manual Pruning</h2>
+            <span class="text-sm text-neutral-400">Runs immediately</span>
+        </div>
+
+        <form method="post" action="{{ url_for('prune_run') }}" class="space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Scope</label>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="scope_type" value="all" checked>
+                            All Instances
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="scope_type" value="instance">
+                            Single Instance
+                        </label>
+                    </div>
+                    <div class="mt-3">
+                        <label for="scope_instance_id" class="block text-sm font-medium text-neutral-300 mb-2">Instance (used when Single Instance)</label>
+                        <select id="scope_instance_id" name="scope_instance_id" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                            <option value="">Select instance</option>
+                            {% for instance in instances %}
+                                <option value="{{ instance.id }}">{{ instance.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Retention Rule</label>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="keep_mode" value="days" checked>
+                            Keep by Days
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="keep_mode" value="count">
+                            Keep by Count
+                        </label>
+                    </div>
+
+                    <div class="mt-3 space-y-3">
+                        <div>
+                            <label for="keep_days" class="block text-sm font-medium text-neutral-300 mb-2">Days of backups to keep</label>
+                            <input id="keep_days" name="keep_days" type="number" min="1" value="14" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                        </div>
+                        <div>
+                            <label for="keep_count" class="block text-sm font-medium text-neutral-300 mb-2">Backups to keep per instance (newest first)</label>
+                            <input id="keep_count" name="keep_count" type="number" min="1" value="10" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                        </div>
+                        <div class="text-xs text-neutral-400">
+                            If you choose <strong>All Instances</strong>, count-based retention keeps the newest <em>N</em> backups <strong>per instance</strong>.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-neutral-900/40 border border-neutral-700 rounded-md p-4">
+                <label class="flex items-start gap-3 text-sm text-neutral-300">
+                    <input type="checkbox" name="confirm_prune" class="mt-1">
+                    <span>
+                        I understand this will permanently delete backup files and their database records.
+                        Only proceed if you're sure about the retention settings.
+                    </span>
+                </label>
+            </div>
+
+            <div class="flex justify-end">
+                <button type="submit" class="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                    Prune Now
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Automated Pruning -->
+    <div class="bg-neutral-800 rounded-lg border border-neutral-700 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-bold text-neutral-100">Automated Pruning</h2>
+            <span class="text-sm text-neutral-400">Runs in the background</span>
+        </div>
+
+        <form method="post" action="{{ url_for('prune_settings') }}" class="space-y-6">
+            <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm text-neutral-300">
+                    <input type="checkbox" name="enabled" {% if prune_settings.enabled %}checked{% endif %}>
+                    Enable automated pruning
+                </label>
+                <div class="text-xs text-neutral-400">
+                    Interval is <strong>hours</strong>. Default: once per day.
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Scope</label>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="scope_type" value="all" {% if prune_settings.scope_type != 'instance' %}checked{% endif %}>
+                            All Instances
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="scope_type" value="instance" {% if prune_settings.scope_type == 'instance' %}checked{% endif %}>
+                            Single Instance
+                        </label>
+                    </div>
+
+                    <div class="mt-3">
+                        <label for="auto_scope_instance_id" class="block text-sm font-medium text-neutral-300 mb-2">Instance (used when Single Instance)</label>
+                        <select id="auto_scope_instance_id" name="scope_instance_id" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                            <option value="">Select instance</option>
+                            {% for instance in instances %}
+                                <option value="{{ instance.id }}" {% if prune_settings.scope_instance_id == instance.id %}selected{% endif %}>
+                                    {{ instance.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-neutral-300 mb-2">Retention Rule</label>
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="keep_mode" value="days" {% if prune_settings.keep_days is not none or (prune_settings.keep_days is none and prune_settings.keep_count is none) %}checked{% endif %}>
+                            Keep by Days
+                        </label>
+                        <label class="flex items-center gap-2 text-sm text-neutral-300">
+                            <input type="radio" name="keep_mode" value="count" {% if prune_settings.keep_count is not none %}checked{% endif %}>
+                            Keep by Count
+                        </label>
+                    </div>
+
+                    <div class="mt-3 space-y-3">
+                        <div>
+                            <label for="auto_keep_days" class="block text-sm font-medium text-neutral-300 mb-2">Days of backups to keep</label>
+                            <input id="auto_keep_days" name="keep_days" type="number" min="1" value="{{ prune_settings.keep_days if prune_settings.keep_days is not none else 14 }}" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                        </div>
+                        <div>
+                            <label for="auto_keep_count" class="block text-sm font-medium text-neutral-300 mb-2">Backups to keep per instance (newest first)</label>
+                            <input id="auto_keep_count" name="keep_count" type="number" min="1" value="{{ prune_settings.keep_count if prune_settings.keep_count is not none else 10 }}" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                        </div>
+                        <div class="mt-3">
+                            <label for="interval_hours" class="block text-sm font-medium text-neutral-300 mb-2">Run interval (hours)</label>
+                            <input id="interval_hours" name="interval_hours" type="number" min="1" value="{{ (prune_settings.interval_seconds // 3600) if prune_settings.interval_seconds is not none else 24 }}" class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 focus:outline-none focus:border-orange-500 transition-colors">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if prune_settings.last_run_at %}
+                <div class="text-sm text-neutral-400">
+                    Last automated prune run: <span class="text-neutral-300 font-medium">{{ prune_settings.last_run_at.strftime('%Y-%m-%d %H:%M') }}</span>
+                </div>
+            {% endif %}
+
+            <div class="flex justify-end gap-3 flex-wrap">
+                <button type="submit" name="action" value="run_now" class="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-neutral-300 rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                    Save & Run Now
+                </button>
+                <button type="submit" class="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white rounded-md text-sm font-medium transition-colors hover:cursor-pointer">
+                    Save Settings
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+

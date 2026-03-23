@@ -29,8 +29,18 @@
                     <a href="{{ url_for('backups') }}" class="text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
                         Backups
                     </a>
+                    <a href="{{ url_for('prune_page') }}" class="text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                        Prune
+                    </a>
+                    {% if session.is_admin %}
+                    <a href="{{ url_for('users') }}" class="text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                        Users
+                    </a>
+                    {% endif %}
                     <span class="text-neutral-400">|</span>
-                    <span class="text-neutral-300">{{ session.username }}</span>
+                    <a href="{{ url_for('profile') }}" class="text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors">
+                        {{ session.username }}
+                    </a>
                     <a href="{{ url_for('logout') }}" class="bg-neutral-700 hover:bg-neutral-600 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                         Logout
                     </a>
@@ -59,8 +69,18 @@
                 <a href="{{ url_for('backups') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
                     Backups
                 </a>
+                <a href="{{ url_for('prune_page') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
+                    Prune
+                </a>
+                {% if session.is_admin %}
+                <a href="{{ url_for('users') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
+                    Users
+                </a>
+                {% endif %}
                 <div class="border-t border-neutral-700 pt-2 mt-2">
-                    <div class="px-3 py-2 text-sm text-neutral-400">{{ session.username }}</div>
+                    <a href="{{ url_for('profile') }}" class="block px-3 py-2 text-sm text-neutral-400 hover:text-orange-500 rounded-md transition-colors hover:bg-neutral-700">
+                        {{ session.username }}
+                    </a>
                     <a href="{{ url_for('logout') }}" class="block text-neutral-300 hover:text-orange-500 px-3 py-2 rounded-md text-sm font-medium transition-colors hover:bg-neutral-700">
                         Logout
                     </a>

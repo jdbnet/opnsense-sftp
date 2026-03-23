@@ -5,6 +5,7 @@ import mysql.connector
 from mysql.connector import Error
 import os
 from contextlib import contextmanager
+from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 from logger_config import get_logger
@@ -57,6 +58,19 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+
+                # Backward-compatible user auth columns.
+                cursor.execute("SHOW COLUMNS FROM users LIKE 'is_admin'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE")
+
+                cursor.execute("SHOW COLUMNS FROM users LIKE 'totp_secret'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL")
+
+                cursor.execute("SHOW COLUMNS FROM users LIKE 'totp_enabled'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT FALSE")
                 
                 # Create opnsense_instances table
                 cursor.execute("""
@@ -96,6 +110,32 @@ class Database:
                         FOREIGN KEY (instance_id) REFERENCES opnsense_instances(id) ON DELETE CASCADE
                     )
                 """)
+
+                # Create backup pruning settings table (single policy row).
+                cursor.execute("""
+                    CREATE TABLE IF NOT EXISTS backup_prune_settings (
+                        id INT PRIMARY KEY,
+                        enabled BOOLEAN NOT NULL DEFAULT FALSE,
+                        scope_type VARCHAR(10) NOT NULL DEFAULT 'all', /* 'all' or 'instance' */
+                        scope_instance_id INT NULL,
+                        keep_days INT NULL,
+                        keep_count INT NULL,
+                        interval_seconds INT NOT NULL DEFAULT 86400,
+                        last_run_at TIMESTAMP NULL,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (scope_instance_id) REFERENCES opnsense_instances(id) ON DELETE SET NULL
+                    )
+                """)
+
+                # Ensure we have exactly one settings row.
+                cursor.execute("""
+                    INSERT INTO backup_prune_settings
+                        (id, enabled, scope_type, scope_instance_id, keep_days, keep_count, interval_seconds, last_run_at)
+                    VALUES
+                        (1, FALSE, 'all', NULL, NULL, NULL, 86400, NULL)
+                    ON DUPLICATE KEY UPDATE
+                        id = id
+                """)
                 
                 conn.commit()
                 cursor.close()
@@ -104,14 +144,14 @@ class Database:
             logger.error(f"Error initializing database: {e}")
             raise
     
-    def create_user(self, username: str, password_hash: str) -> Optional[int]:
+    def create_user(self, username: str, password_hash: str, is_admin: bool = False) -> Optional[int]:
         """Create a new user."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-                    (username, password_hash)
+                    "INSERT INTO users (username, password_hash, is_admin) VALUES (%s, %s, %s)",
+                    (username, password_hash, is_admin)
                 )
                 conn.commit()
                 user_id = cursor.lastrowid
@@ -133,6 +173,106 @@ class Database:
         except Error as e:
             logger.error(f"Error getting user: {e}")
             return None
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Get user by ID."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                user = cursor.fetchone()
+                cursor.close()
+                return user
+        except Error as e:
+            logger.error(f"Error getting user by id: {e}")
+            return None
+
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        """Get all users."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(
+                    """
+                    SELECT id, username, is_admin, totp_enabled, created_at
+                    FROM users
+                    ORDER BY created_at ASC
+                    """
+                )
+                users = cursor.fetchall()
+                cursor.close()
+                return users
+        except Error as e:
+            logger.error(f"Error getting users: {e}")
+            return []
+
+    def update_user_username(self, user_id: int, username: str) -> bool:
+        """Update username for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET username = %s WHERE id = %s", (username, user_id))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating username: {e}")
+            return False
+
+    def update_user_password(self, user_id: int, password_hash: str) -> bool:
+        """Update password hash for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (password_hash, user_id))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating password hash: {e}")
+            return False
+
+    def update_user_totp(self, user_id: int, totp_secret: Optional[str], totp_enabled: bool) -> bool:
+        """Update TOTP settings for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE users SET totp_secret = %s, totp_enabled = %s WHERE id = %s",
+                    (totp_secret, totp_enabled, user_id),
+                )
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating TOTP settings: {e}")
+            return False
+
+    def update_user_admin(self, user_id: int, is_admin: bool) -> bool:
+        """Update admin flag for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET is_admin = %s WHERE id = %s", (is_admin, user_id))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating user admin flag: {e}")
+            return False
+
+    def delete_user(self, user_id: int) -> bool:
+        """Delete user by ID."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error deleting user: {e}")
+            return False
     
     def create_instance(self, name: str, identifier: str, ssh_key_id: str, description: str = "") -> Optional[int]:
         """Create a new OPNsense instance."""
@@ -302,4 +442,104 @@ class Database:
         except Error as e:
             logger.error(f"Error getting latest backup per instance: {e}")
             return []
+
+    def get_backup_prune_settings(self) -> Dict[str, Any]:
+        """Get automated backup prune settings (single row)."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM backup_prune_settings WHERE id = %s", (1,))
+                row = cursor.fetchone()
+                cursor.close()
+                if row:
+                    return row
+        except Error as e:
+            logger.error(f"Error getting backup prune settings: {e}")
+        # Safe defaults if table/row doesn't exist yet.
+        return {
+            "id": 1,
+            "enabled": False,
+            "scope_type": "all",
+            "scope_instance_id": None,
+            "keep_days": None,
+            "keep_count": None,
+            "interval_seconds": 86400,
+            "last_run_at": None,
+            "updated_at": None,
+        }
+
+    def upsert_backup_prune_settings(
+        self,
+        enabled: bool,
+        scope_type: str,
+        scope_instance_id: Optional[int],
+        keep_days: Optional[int],
+        keep_count: Optional[int],
+        interval_seconds: int,
+    ) -> None:
+        """Upsert automated backup prune settings (single row)."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO backup_prune_settings
+                        (id, enabled, scope_type, scope_instance_id, keep_days, keep_count, interval_seconds)
+                    VALUES
+                        (1, %s, %s, %s, %s, %s, %s)
+                    ON DUPLICATE KEY UPDATE
+                        enabled = VALUES(enabled),
+                        scope_type = VALUES(scope_type),
+                        scope_instance_id = VALUES(scope_instance_id),
+                        keep_days = VALUES(keep_days),
+                        keep_count = VALUES(keep_count),
+                        interval_seconds = VALUES(interval_seconds)
+                    """,
+                    (
+                        bool(enabled),
+                        scope_type,
+                        scope_instance_id,
+                        keep_days,
+                        keep_count,
+                        interval_seconds,
+                    ),
+                )
+                conn.commit()
+                cursor.close()
+        except Error as e:
+            logger.error(f"Error updating backup prune settings: {e}")
+
+    def set_backup_prune_last_run_at(self, last_run_at: datetime) -> None:
+        """Update last_run_at after a prune run."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE backup_prune_settings SET last_run_at = %s WHERE id = %s",
+                    (last_run_at, 1),
+                )
+                conn.commit()
+                cursor.close()
+        except Error as e:
+            logger.error(f"Error updating backup prune last_run_at: {e}")
+
+    def delete_backups_by_ids(self, backup_ids: List[int]) -> int:
+        """Delete backup records by IDs (returns number of deleted rows)."""
+        if not backup_ids:
+            return 0
+        try:
+            placeholders = ", ".join(["%s"] * len(backup_ids))
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    f"DELETE FROM backups WHERE id IN ({placeholders})",
+                    tuple(backup_ids),
+                )
+                affected = cursor.rowcount or 0
+                conn.commit()
+                cursor.close()
+                return affected
+        except Error as e:
+            logger.error(f"Error deleting backups by ids: {e}")
+            return 0
 

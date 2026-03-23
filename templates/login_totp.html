@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}Two-Factor Verification - OPNsense Backup Manager{% endblock %}
+
+{% block content %}
+<div class="min-h-[calc(100vh-12rem)] flex items-center justify-center">
+    <div class="w-full max-w-md">
+        <div class="bg-neutral-800 rounded-lg shadow-lg p-8 border border-neutral-700">
+            <div class="text-center mb-8">
+                <h1 class="text-3xl font-bold text-orange-500 mb-2">Two-Factor Verification</h1>
+                <p class="text-neutral-400">Enter the code from your authenticator app.</p>
+                {% if username %}
+                <p class="text-sm text-neutral-500 mt-2">Signing in as <span class="text-neutral-300">{{ username }}</span></p>
+                {% endif %}
+            </div>
+
+            <form method="POST" action="{{ url_for('login_totp') }}" class="space-y-6">
+                <div>
+                    <label for="otp_code" class="block text-sm font-medium text-neutral-300 mb-2">
+                        TOTP Code
+                    </label>
+                    <input
+                        type="text"
+                        id="otp_code"
+                        name="otp_code"
+                        required
+                        inputmode="numeric"
+                        autocomplete="one-time-code"
+                        class="w-full px-4 py-2 bg-neutral-700 border border-neutral-600 rounded-md text-neutral-100 placeholder-neutral-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                        placeholder="6-digit code"
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="w-full bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 hover:cursor-pointer">
+                    Verify and Sign In
+                </button>
+            </form>
+
+            <div class="mt-6 text-center">
+                <a href="{{ url_for('logout') }}" class="text-sm text-neutral-400 hover:text-orange-500 transition-colors">
+                    Cancel and return to login
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
