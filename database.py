@@ -58,6 +58,19 @@ class Database:
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )
                 """)
+
+                # Backward-compatible user auth columns.
+                cursor.execute("SHOW COLUMNS FROM users LIKE 'is_admin'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT FALSE")
+
+                cursor.execute("SHOW COLUMNS FROM users LIKE 'totp_secret'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64) NULL")
+
+                cursor.execute("SHOW COLUMNS FROM users LIKE 'totp_enabled'")
+                if not cursor.fetchone():
+                    cursor.execute("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT FALSE")
                 
                 # Create opnsense_instances table
                 cursor.execute("""
@@ -131,14 +144,14 @@ class Database:
             logger.error(f"Error initializing database: {e}")
             raise
     
-    def create_user(self, username: str, password_hash: str) -> Optional[int]:
+    def create_user(self, username: str, password_hash: str, is_admin: bool = False) -> Optional[int]:
         """Create a new user."""
         try:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 cursor.execute(
-                    "INSERT INTO users (username, password_hash) VALUES (%s, %s)",
-                    (username, password_hash)
+                    "INSERT INTO users (username, password_hash, is_admin) VALUES (%s, %s, %s)",
+                    (username, password_hash, is_admin)
                 )
                 conn.commit()
                 user_id = cursor.lastrowid
@@ -160,6 +173,106 @@ class Database:
         except Error as e:
             logger.error(f"Error getting user: {e}")
             return None
+
+    def get_user_by_id(self, user_id: int) -> Optional[Dict[str, Any]]:
+        """Get user by ID."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+                user = cursor.fetchone()
+                cursor.close()
+                return user
+        except Error as e:
+            logger.error(f"Error getting user by id: {e}")
+            return None
+
+    def get_all_users(self) -> List[Dict[str, Any]]:
+        """Get all users."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor(dictionary=True)
+                cursor.execute(
+                    """
+                    SELECT id, username, is_admin, totp_enabled, created_at
+                    FROM users
+                    ORDER BY created_at ASC
+                    """
+                )
+                users = cursor.fetchall()
+                cursor.close()
+                return users
+        except Error as e:
+            logger.error(f"Error getting users: {e}")
+            return []
+
+    def update_user_username(self, user_id: int, username: str) -> bool:
+        """Update username for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET username = %s WHERE id = %s", (username, user_id))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating username: {e}")
+            return False
+
+    def update_user_password(self, user_id: int, password_hash: str) -> bool:
+        """Update password hash for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET password_hash = %s WHERE id = %s", (password_hash, user_id))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating password hash: {e}")
+            return False
+
+    def update_user_totp(self, user_id: int, totp_secret: Optional[str], totp_enabled: bool) -> bool:
+        """Update TOTP settings for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    "UPDATE users SET totp_secret = %s, totp_enabled = %s WHERE id = %s",
+                    (totp_secret, totp_enabled, user_id),
+                )
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating TOTP settings: {e}")
+            return False
+
+    def update_user_admin(self, user_id: int, is_admin: bool) -> bool:
+        """Update admin flag for a user."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("UPDATE users SET is_admin = %s WHERE id = %s", (is_admin, user_id))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error updating user admin flag: {e}")
+            return False
+
+    def delete_user(self, user_id: int) -> bool:
+        """Delete user by ID."""
+        try:
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
+                conn.commit()
+                cursor.close()
+                return True
+        except Error as e:
+            logger.error(f"Error deleting user: {e}")
+            return False
     
     def create_instance(self, name: str, identifier: str, ssh_key_id: str, description: str = "") -> Optional[int]:
         """Create a new OPNsense instance."""
