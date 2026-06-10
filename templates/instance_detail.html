@@ -19,11 +19,11 @@
         <h2 class="text-xl font-bold text-neutral-100 mb-4">SFTP Target Location (URI)</h2>
         <p class="text-sm text-neutral-400 mb-4">Use this URI format in OPNsense backup configuration:</p>
         <div class="bg-neutral-900 rounded-md p-4 border border-neutral-600 mb-4">
-            <code class="text-sm text-orange-400 break-all block">{{ sftp_uri }}</code>
+            <code id="sftp-uri-content" class="text-sm text-orange-400 break-all block">{{ sftp_uri }}</code>
         </div>
         <div class="flex items-center space-x-2">
             <button
-                onclick="copyToClipboard('{{ sftp_uri }}')"
+                onclick="copyToClipboard(document.getElementById('sftp-uri-content').textContent)"
                 class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
             >
                 Copy URI
@@ -46,11 +46,11 @@
         </p>
         {% if private_key_content %}
         <div class="bg-neutral-900 rounded-md p-4 border border-neutral-600 mb-4">
-            <code class="text-sm text-neutral-300 whitespace-pre-wrap break-all block">{{ private_key_content }}</code>
+            <code id="private-key-content" class="text-sm text-neutral-300 whitespace-pre-wrap break-all block">{{ private_key_content }}</code>
         </div>
         <div class="flex items-center space-x-2">
             <button
-                onclick="copyToClipboard('{{ private_key_content }}')"
+                onclick="copyToClipboard(document.getElementById('private-key-content').textContent)"
                 class="bg-orange-500 hover:bg-orange-600 text-white font-medium py-2 px-4 rounded-md transition-colors duration-200 text-sm"
             >
                 Copy Private Key
