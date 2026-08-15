@@ -52,6 +52,10 @@ sftp:
   public_port: 0
 prune:
   check_interval: 1h
+update:
+  enabled: true
+  url: ""
+  allow_dev: false
 EOF
   echo "Wrote ${CONFIG_DIR}/config.yaml"
 fi

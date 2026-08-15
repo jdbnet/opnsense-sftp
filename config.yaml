@@ -10,3 +10,7 @@ sftp:
   public_port: 2222
 prune:
   check_interval: 1h
+update:
+  enabled: false
+  url: ""
+  allow_dev: false

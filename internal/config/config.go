@@ -19,8 +19,15 @@ type Config struct {
 	KeysDir       string      `yaml:"keys_dir"`
 	BackupsDir    string      `yaml:"backups_dir"`
 	SessionSecret string      `yaml:"session_secret"`
-	SFTP          SFTPConfig  `yaml:"sftp"`
-	Prune         PruneConfig `yaml:"prune"`
+	SFTP          SFTPConfig   `yaml:"sftp"`
+	Prune         PruneConfig  `yaml:"prune"`
+	Update        UpdateConfig `yaml:"update"`
+}
+
+type UpdateConfig struct {
+	Enabled  bool   `yaml:"enabled"`
+	URL      string `yaml:"url"`
+	AllowDev bool   `yaml:"allow_dev"`
 }
 
 type SFTPConfig struct {
@@ -63,6 +70,9 @@ func defaultConfig() *Config {
 		},
 		Prune: PruneConfig{
 			CheckInterval: Duration{time.Hour},
+		},
+		Update: UpdateConfig{
+			Enabled: true,
 		},
 	}
 }
@@ -139,6 +149,12 @@ func applyEnv(cfg *Config) {
 	}
 	if v := os.Getenv("OPNSENSE_SFTP_LOG_LEVEL"); v != "" {
 		cfg.LogLevel = v
+	}
+	if v := os.Getenv("OPNSENSE_SFTP_UPDATE_ENABLED"); v != "" {
+		cfg.Update.Enabled = parseBool(v)
+	}
+	if v := os.Getenv("OPNSENSE_SFTP_UPDATE_URL"); v != "" {
+		cfg.Update.URL = v
 	}
 }
 

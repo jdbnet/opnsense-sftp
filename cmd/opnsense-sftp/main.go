@@ -18,6 +18,7 @@ import (
 	"git.jdbnet.co.uk/jamie/opnsense-sftp/internal/prune"
 	sftpsrv "git.jdbnet.co.uk/jamie/opnsense-sftp/internal/sftp"
 	"git.jdbnet.co.uk/jamie/opnsense-sftp/internal/store"
+	"git.jdbnet.co.uk/jamie/opnsense-sftp/internal/update"
 )
 
 var Version = "dev"
@@ -44,6 +45,22 @@ func main() {
 	if err := cfg.EnsureDirs(); err != nil {
 		slog.Error("ensure dirs", "err", err)
 		os.Exit(1)
+	}
+
+	updCtx, updCancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	replaced, err := update.Check(updCtx, update.Config{
+		Enabled:  cfg.Update.Enabled,
+		URL:      cfg.Update.URL,
+		AllowDev: cfg.Update.AllowDev,
+	}, Version, cfg.DataDir)
+	updCancel()
+	if err != nil {
+		slog.Warn("update check failed, continuing", "err", err)
+	} else if replaced {
+		slog.Info("installed newer binary, restarting")
+		if err := update.Restart(); err != nil {
+			slog.Error("restart after update", "err", err)
+		}
 	}
 
 	db, err := store.Open(cfg.DataDir)

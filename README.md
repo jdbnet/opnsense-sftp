@@ -44,6 +44,10 @@ sftp:
   public_port: 0
 prune:
   check_interval: 1h
+update:
+  enabled: true
+  url: ""
+  allow_dev: false
 ```
 
 ### Environment variable overrides
@@ -51,6 +55,14 @@ prune:
 - `OPNSENSE_SFTP_LISTEN`, `OPNSENSE_SFTP_DATA_DIR`, `OPNSENSE_SFTP_KEYS_DIR`, `OPNSENSE_SFTP_BACKUPS_DIR`
 - `SESSION_SECRET`
 - `SFTP_PUBLIC_HOST`, `SFTP_PUBLIC_PORT`
+- `OPNSENSE_SFTP_UPDATE_ENABLED`, `OPNSENSE_SFTP_UPDATE_URL`
+- `OPNSENSE_SFTP_NO_UPDATE` (any value skips the startup update check)
+
+### Auto-update
+
+On startup, when `update.enabled` is true, the binary compares its SHA256 hash against `https://apps.jdbnet.co.uk/opnsense-sftp-{arch}.sha256`. If a newer build is published, it downloads, verifies, replaces itself, and restarts. Disabled for local `dev` builds unless `update.allow_dev` is set.
+
+The install script enables auto-update by default.
 
 On first run, if no users exist, an `admin` user is created with password `changeme`. Change the password immediately.
 
