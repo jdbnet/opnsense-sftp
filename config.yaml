@@ -1,0 +1,12 @@
+listen: 0.0.0.0:8080
+log_level: info
+data_dir: ./data
+keys_dir: ./data/keys
+backups_dir: ./data/backups
+session_secret: change-me
+sftp:
+  listen: 0.0.0.0:2222
+  public_host: "10.10.60.2"
+  public_port: 2222
+prune:
+  check_interval: 1h

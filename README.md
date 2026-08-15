@@ -1,165 +1,85 @@
 <div align="center">
-  <img src="https://assets.s3.jdbnet.co.uk/opnsense.png" alt="OPNsense" width="200" />
-  
-  # OPNsense SFTP Backup Manager
-</div>
+  <img src="ui/public/favicon.png" alt="OPNsense" width="128" />
 
-A Flask-based web application for managing OPNsense configuration backups via SFTP. This application provides an SFTP server with SSH key authentication, automatically generates SSH keys for each OPNsense instance, and offers a web-based interface for viewing and downloading backups.
+  # OPNsense SFTP Backup Manager
+
+  Centralized backup receiver for OPNsense firewalls. Each firewall pushes encrypted config backups via SFTP using a per-instance SSH key pair. The app stores files on disk, tracks metadata in SQLite, and provides a web GUI for administration.
+
+</div>
 
 ## Features
 
-- **SFTP Server**: Built-in SFTP server supporting SSH key authentication
-- **SSH Key Generation**: Automatically generates SSH key pairs for each OPNsense instance
-- **Multi-Instance Support**: Manage backups from multiple OPNsense instances
-- **Web Interface**: Modern web GUI built with Tailwind CSS
-- **MariaDB Integration**: Stores instance information, SSH keys, and backup metadata
-- **Secure Authentication**: Web interface with session-based authentication
+- **SFTP server**: Built-in SFTP with SSH public key authentication only
+- **SSH key generation**: 4096-bit RSA key pairs in OpenSSH format per instance
+- **Multi-instance support**: Manage backups from multiple OPNsense firewalls
+- **Web UI**: Vue 3 + Tailwind 4 management interface (embedded in the binary)
+- **SQLite**: Local metadata storage, no external database required
+- **Authentication**: Session cookies, bcrypt passwords, optional TOTP 2FA
+- **Backup pruning**: Manual and automated retention by days or count
 
-## Quick Start with Docker
+## Install
 
-### Docker Run
+On a Linux server (amd64 or arm64):
 
 ```bash
-docker run -d \
-  --name opnsense-sftp \
-  -p 5000:5000 \
-  -p 2222:2222 \
-  -e DB_HOST=10.10.2.27 \
-  -e DB_PORT=3306 \
-  -e DB_NAME=opnsense-sftp \
-  -e DB_USER=jamie \
-  -e DB_PASSWORD=your_password \
-  -e SECRET_KEY=your_secret_key \
-  -e ADMIN_PASSWORD=your_admin_password \
-  -e SFTP_PORT=2222 \
-  -e SFTP_PUBLIC_HOST=opnsense-sftp.jdb143.uk \
-  -e SFTP_PUBLIC_PORT=30222 \
-  -v /path/to/keys:/app/keys \
-  -v /path/to/backups:/app/backups \
-  cr.jdbnet.co.uk/public/opnsense-sftp:latest
+curl -fsSL https://git.jdbnet.co.uk/jamie/opnsense-sftp/raw/branch/main/deploy/install.sh | sudo bash
 ```
 
-### Docker Compose
-
-```yaml
-services:
-  opnsense-sftp:
-    image: cr.jdbnet.co.uk/public/opnsense-sftp:latest
-    container_name: opnsense-sftp
-    restart: unless-stopped
-    ports:
-      - "5000:5000"  # Web interface
-      - "2222:2222"  # SFTP server
-    environment:
-      - DB_HOST=10.10.2.27
-      - DB_PORT=3306
-      - DB_NAME=opnsense-sftp
-      - DB_USER=jamie
-      - DB_PASSWORD=your_password
-      - SECRET_KEY=your_secret_key
-      - ADMIN_PASSWORD=your_admin_password
-      - SFTP_PORT=2222
-      - SFTP_PUBLIC_HOST=opnsense-sftp.jdb143.uk
-      - SFTP_PUBLIC_PORT=30222
-    volumes:
-      - ./keys:/app/keys      # SSH private keys
-      - ./backups:/app/backups # Backup files
-```
+This downloads the release binary from `apps.jdbnet.co.uk`, installs `opnsense-sftp` to `/usr/local/bin`, creates `/etc/opnsense-sftp/config.yaml`, and enables a systemd service.
 
 ## Configuration
 
-### Environment Variables
+Example `config.yaml`:
 
-- `DB_HOST`: MariaDB host (default: localhost)
-- `DB_PORT`: MariaDB port (default: 3306)
-- `DB_NAME`: Database name (default: opnsense_backup)
-- `DB_USER`: Database user
-- `DB_PASSWORD`: Database password
-- `SECRET_KEY`: Flask secret key for sessions (**REQUIRED in production!**)
-- `ADMIN_PASSWORD`: Default admin password (default: admin)
-- `SFTP_HOST`: SFTP server bind address (default: 0.0.0.0)
-- `SFTP_PORT`: SFTP server port (default: 2222)
-- `SFTP_PUBLIC_HOST`: Public hostname/IP for OPNsense configuration (e.g., `opnsense-sftp.jdb143.uk` or `10.10.2.7`)
-- `SFTP_PUBLIC_PORT`: Public port exposed (e.g., NodePort `30222` for Kubernetes)
+```yaml
+listen: 0.0.0.0:8080
+log_level: info
+data_dir: /var/lib/opnsense-sftp
+keys_dir: /var/lib/opnsense-sftp/keys
+backups_dir: /var/lib/opnsense-sftp/backups
+session_secret: change-me
+sftp:
+  listen: 0.0.0.0:2222
+  public_host: ""
+  public_port: 0
+prune:
+  check_interval: 1h
+```
 
-### Volumes
+### Environment variable overrides
 
-- `/app/keys`: Directory containing SSH private keys (recommended to mount as volume)
-- `/app/backups`: Directory containing backup files (recommended to mount as volume)
+- `OPNSENSE_SFTP_LISTEN`, `OPNSENSE_SFTP_DATA_DIR`, `OPNSENSE_SFTP_KEYS_DIR`, `OPNSENSE_SFTP_BACKUPS_DIR`
+- `SESSION_SECRET`
+- `SFTP_PUBLIC_HOST`, `SFTP_PUBLIC_PORT`
 
-## Usage
+On first run, if no users exist, an `admin` user is created with password `changeme`. Change the password immediately.
 
-### Setting up an OPNsense Instance
+## OPNsense setup
 
-1. Access the web interface at `http://your-server:5000`
-2. Log in with the default credentials (change immediately after first login!)
-   - Default username: `admin`
-   - Default password: Set via `ADMIN_PASSWORD` environment variable
-3. Navigate to "Instances" and click "Add Instance"
-4. Fill in:
-   - **Name**: Friendly name for the instance (e.g., "Main Router")
-   - **Identifier**: Unique identifier (e.g., "lan") - used as SFTP username
-   - **Description**: Optional description
-5. Click "Create Instance"
-
-### Configuring OPNsense
-
-1. In OPNsense, navigate to **System → Configuration → Backups**
-2. Add a new backup target:
+1. Open the web UI at `http://your-server:8080` and sign in
+2. Create an instance under **Instances** (identifier becomes the SFTP username)
+3. In OPNsense: **System → Configuration → Backups**
    - **Type**: SFTP
-   - **Target location (URI)**: Copy from the instance detail page (e.g., `sftp://lan@opnsense-sftp.jdb143.uk:30222//lan`)
-   - **SSH Private Key**: Copy or download the private key from the instance detail page
-3. Configure your backup schedule and save
-4. Test the backup connection to verify authentication works
+   - **Target location (URI)**: copy from the instance detail page (e.g. `sftp://lan@backup.example.com:2222//lan`)
+   - **SSH Private Key**: download from the instance detail page
+4. Save and test the backup connection
 
-### Accessing Backups
+## Ports
 
-- View all backups in the "Backups" section
-- Download backups by clicking the "Download" link
-- View instance-specific backups from the instance detail page
+| Port | Service |
+|------|---------|
+| 8080 | Web UI + REST API (configurable via `listen`) |
+| 2222 | SFTP (configurable via `sftp.listen`) |
 
-## Kubernetes Deployment
+Set `sftp.public_host` and `sftp.public_port` to the address OPNsense should use when the public endpoint differs from the bind address.
 
-The project includes a Kubernetes deployment manifest. See `deployment.yml` for details.
+## Security notes
 
-**Note**: For Kubernetes deployments:
-- Use NFS mounts for `keys` and `backups` volumes
-- Configure `SFTP_PUBLIC_PORT` to match your NodePort (e.g., `30222`)
-- Use `SFTP_PUBLIC_HOST` for the public hostname or IP address
-
-## Security Notes
-
-- **CHANGE THE DEFAULT ADMIN PASSWORD** immediately after first login
-- **CHANGE THE SECRET_KEY** in production - use a strong random string
-- The SFTP server uses SSH key authentication only (no passwords)
-- SSH private keys are stored in the `keys/` directory with restricted permissions (600)
-- Backups are stored per-instance to prevent cross-access
-- Keep your private keys secure - anyone with access can authenticate as that instance
-
-## Troubleshooting
-
-### Database Connection Issues
-
-- Ensure MariaDB is running and accessible from the container
-- Check database credentials in environment variables
-- Verify database and user exist with proper permissions
-- Check network connectivity between container and database
-
-### SFTP Connection Issues
-
-- Check that the SFTP server is running (should show in logs)
-- Verify firewall allows connections on SFTP port (default: 2222)
-- Ensure OPNsense can reach the server on the configured port
-- Check SSH key format - OPNsense requires the **private key**, not the public key
-- Verify the SFTP URI format matches what's displayed in the web interface
-
-### Backup Not Appearing
-
-- Check SFTP server logs for connection attempts
-- Verify instance identifier matches SFTP username
-- Ensure private key in OPNsense matches the generated key
-- Check file permissions on the backups directory
+- Change the default `session_secret`
+- SFTP accepts public key authentication only
+- Private keys are stored under `keys_dir` with mode 0600
+- Each instance is path-sandboxed under `backups_dir/{identifier}/`
 
 ## License
 
-This project is provided as-is for managing OPNsense backups.
+[MIT](LICENSE)

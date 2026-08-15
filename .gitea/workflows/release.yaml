@@ -1,0 +1,88 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  release:
+    runs-on: build-htz-01
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Release
+        id: semantic
+        uses: https://git.jdbnet.co.uk/jamie/go-semantic-release-provider-gitea@v1.2.3
+        with:
+          gitea-host: ${{ gitea.server_url }}
+          gitea-token: ${{ secrets.GITEA_TOKEN }}
+
+      - name: Checkout release tag
+        if: steps.semantic.outputs.version != ''
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ steps.semantic.outputs.version }}
+          fetch-depth: 0
+
+      - name: Set up Go
+        if: steps.semantic.outputs.version != ''
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Node
+        if: steps.semantic.outputs.version != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Build UI
+        if: steps.semantic.outputs.version != ''
+        working-directory: ui
+        run: |
+          npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund
+          npm run build
+
+      - name: Build binaries
+        if: steps.semantic.outputs.version != ''
+        run: |
+          go mod tidy
+          VERSION="${{ steps.semantic.outputs.version }}"
+          CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+            -ldflags="-s -w -X main.Version=${VERSION}" \
+            -o opnsense-sftp-amd64 ./cmd/opnsense-sftp
+          CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build \
+            -ldflags="-s -w -X main.Version=${VERSION}" \
+            -o opnsense-sftp-arm64 ./cmd/opnsense-sftp
+          sha256sum opnsense-sftp-amd64 | awk '{print $1}' > opnsense-sftp-amd64.sha256
+          sha256sum opnsense-sftp-arm64 | awk '{print $1}' > opnsense-sftp-arm64.sha256
+
+      - name: Upload release assets
+        if: steps.semantic.outputs.version != ''
+        uses: https://gitea.com/actions/gitea-release-action@v1
+        with:
+          token: ${{ secrets.GITEA_TOKEN }}
+          tag_name: v${{ steps.semantic.outputs.version }}
+          name: v${{ steps.semantic.outputs.version }}
+          files: |
+            opnsense-sftp-amd64
+            opnsense-sftp-arm64
+
+      - name: Upload to Cloudflare R2
+        if: steps.semantic.outputs.version != ''
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          AWS_REQUEST_CHECKSUM_CALCULATION: WHEN_REQUIRED
+          AWS_RESPONSE_CHECKSUM_VALIDATION: WHEN_REQUIRED
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT_URL }}
+        run: |
+          aws s3 cp opnsense-sftp-amd64 s3://apps/opnsense-sftp-amd64 --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp opnsense-sftp-arm64 s3://apps/opnsense-sftp-arm64 --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp opnsense-sftp-amd64.sha256 s3://apps/opnsense-sftp-amd64.sha256 --endpoint-url "$R2_ENDPOINT"
+          aws s3 cp opnsense-sftp-arm64.sha256 s3://apps/opnsense-sftp-arm64.sha256 --endpoint-url "$R2_ENDPOINT"

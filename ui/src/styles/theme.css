@@ -1,0 +1,108 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-accent: #f97316;
+  --color-accent-muted: #ea580c;
+  --color-canvas: #f6f8fa;
+  --color-canvas-subtle: #ffffff;
+  --color-canvas-inset: #eff2f5;
+  --color-canvas-dark: #0f1117;
+  --color-canvas-subtle-dark: #161b22;
+  --color-canvas-inset-dark: #21262d;
+  --color-border-default: #d0d7de;
+  --color-border-muted-dark: #30363d;
+}
+
+@layer base {
+  :root { color-scheme: light; }
+  html.dark { color-scheme: dark; }
+  body {
+    background-color: var(--color-canvas);
+    color: #1f2328;
+    font-family: ui-sans-serif, system-ui, sans-serif;
+  }
+  html.dark body {
+    background-color: var(--color-canvas-dark);
+    color: #e6edf3;
+  }
+  button:not(:disabled), [role="button"] { @apply cursor-pointer; }
+  button:disabled { @apply cursor-not-allowed; }
+}
+
+@layer components {
+  .bg-surface { background-color: var(--color-canvas); }
+  html.dark .bg-surface { background-color: var(--color-canvas-dark); }
+  .bg-surface-raised { background-color: var(--color-canvas-subtle); }
+  html.dark .bg-surface-raised { background-color: var(--color-canvas-subtle-dark); }
+  .border-default { border-color: var(--color-border-default); }
+  html.dark .border-default { border-color: var(--color-border-muted-dark); }
+  .text-muted { @apply text-neutral-500 dark:text-neutral-400; }
+  .text-heading { @apply text-neutral-900 dark:text-neutral-100; }
+  .btn-primary {
+    @apply inline-flex items-center justify-center rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-neutral-950 transition hover:bg-accent-muted disabled:cursor-not-allowed;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium transition;
+    border-color: var(--color-border-default);
+    background-color: var(--color-canvas-subtle);
+    color: #1f2328;
+  }
+  .btn-secondary:hover { background-color: var(--color-canvas-inset); }
+  html.dark .btn-secondary {
+    border-color: var(--color-border-muted-dark);
+    background-color: var(--color-canvas-subtle-dark);
+    color: #e6edf3;
+  }
+  html.dark .btn-secondary:hover { background-color: var(--color-canvas-inset-dark); }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center rounded-lg border px-3 py-1.5 text-sm transition;
+    border-color: var(--color-border-default);
+    color: #57606a;
+  }
+  .btn-ghost:hover { background-color: var(--color-canvas-inset); }
+  html.dark .btn-ghost { border-color: var(--color-border-muted-dark); color: #8b949e; }
+  html.dark .btn-ghost:hover { background-color: var(--color-canvas-inset-dark); }
+  .btn-row {
+    @apply inline-flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition disabled:opacity-50;
+  }
+  .btn-row-edit { @apply bg-accent/15 text-accent-muted hover:bg-accent/30; }
+  html.dark .btn-row-edit { @apply text-accent hover:bg-accent/20; }
+  .btn-row-copy { @apply bg-neutral-100 text-neutral-700 hover:bg-neutral-200; }
+  html.dark .btn-row-copy { @apply bg-slate-800 text-slate-300 hover:bg-slate-700; }
+  .btn-row-danger { @apply bg-red-100 text-red-700 hover:bg-red-200; }
+  html.dark .btn-row-danger { @apply bg-red-900/40 text-red-300 hover:bg-red-900/70; }
+  .btn-danger {
+    @apply inline-flex items-center justify-center rounded-lg bg-red-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .card {
+    @apply rounded-xl border p-4;
+    border-color: var(--color-border-default);
+    background-color: var(--color-canvas-subtle);
+  }
+  html.dark .card {
+    border-color: var(--color-border-muted-dark);
+    background-color: var(--color-canvas-subtle-dark);
+  }
+  .input-field {
+    @apply w-full rounded-lg border px-3 py-2 text-sm outline-none ring-accent focus:border-accent focus:ring-1;
+    border-color: var(--color-border-default);
+    background-color: var(--color-canvas-subtle);
+    color: #1f2328;
+  }
+  html.dark .input-field {
+    border-color: var(--color-border-muted-dark);
+    background-color: var(--color-canvas-subtle-dark);
+    color: #e6edf3;
+  }
+  .nav-item-active { @apply bg-accent/15 font-medium text-accent; }
+  .nav-item-inactive { @apply text-neutral-600 hover:bg-neutral-100 dark:text-neutral-400; }
+  html.dark .nav-item-inactive:hover { background-color: var(--color-canvas-inset-dark); }
+  .badge { @apply inline-flex rounded-full px-2 py-0.5 text-xs font-medium; }
+  .table-scroll { @apply -mx-4 overflow-x-auto px-4; max-width: calc(100% + 2rem); }
+  .data-table { @apply w-max min-w-full border-collapse text-left text-sm; }
+  .data-table :is(th, td) { @apply whitespace-nowrap pr-4 align-top last:pr-0; }
+  .data-table thead th { @apply pb-2; }
+  .data-table tbody td { @apply py-2; }
+}

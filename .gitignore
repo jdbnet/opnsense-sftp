@@ -1,44 +1,12 @@
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-env/
-venv/
-ENV/
-.venv
-
-# Environment variables
+/opnsense-sftp
+/data/
 .env
-
-# Keys and sensitive data
-keys/
-*.key
-*.pem
-
-# Backups
-backups/
-
-# Tailwind output
-static/css/output.css
-tailwindcss
-
-# Database
-*.db
-*.sqlite
-*.sqlite3
-
-# IDE
+ui/node_modules/
 .vscode/
 .idea/
 *.swp
 *.swo
 *~
-
-# OS
 .DS_Store
 Thumbs.db
-
-# Logs
 *.log
