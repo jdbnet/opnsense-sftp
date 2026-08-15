@@ -1,7 +1,7 @@
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, RouterLink } from 'vue-router'
-import { Copy, Download, Trash2 } from '@lucide/vue'
+import { Copy, Download, Eye, Trash2, X } from '@lucide/vue'
 import api from '@/api/client'
 import { confirm } from '@/lib/confirm'
 import { formatBytes, formatDate } from '@/lib/bytes'
@@ -10,8 +10,15 @@ const route = useRoute()
 const instance = ref(null)
 const loading = ref(true)
 const copied = ref('')
+const keyModalOpen = ref(false)
+const keyContent = ref('')
+const keyLoading = ref(false)
+const keyError = ref('')
 
-onMounted(load)
+onMounted(() => {
+  load()
+  window.addEventListener('keydown', onKeyModalKey)
+})
 
 async function load() {
   loading.value = true
@@ -32,6 +39,40 @@ async function copyText(text, label) {
 function downloadKey() {
   window.location.href = `/api/v1/instances/${route.params.id}/private-key`
 }
+
+async function viewKey() {
+  keyModalOpen.value = true
+  keyContent.value = ''
+  keyError.value = ''
+  keyLoading.value = true
+  try {
+    const { data } = await api.get(`/instances/${route.params.id}/private-key`, { responseType: 'text' })
+    keyContent.value = data
+  } catch {
+    keyError.value = 'Failed to load private key'
+  } finally {
+    keyLoading.value = false
+  }
+}
+
+function closeKeyModal() {
+  keyModalOpen.value = false
+  keyContent.value = ''
+  keyError.value = ''
+}
+
+function onKeyModalKey(ev) {
+  if (ev.key === 'Escape' && keyModalOpen.value) closeKeyModal()
+}
+
+watch(keyModalOpen, (open) => {
+  document.body.style.overflow = open ? 'hidden' : ''
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onKeyModalKey)
+  document.body.style.overflow = ''
+})
 
 function downloadBackup(id) {
   window.location.href = `/api/v1/backups/${id}/download`
@@ -70,10 +111,16 @@ async function removeBackup(id, filename) {
         </div>
         <div>
           <label class="mb-1 block text-xs text-muted">Private key</label>
-          <button type="button" class="btn-secondary gap-2" @click="downloadKey">
-            <Download class="h-4 w-4" />
-            Download private key
-          </button>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" class="btn-secondary gap-2" @click="viewKey">
+              <Eye class="h-4 w-4" />
+              View private key
+            </button>
+            <button type="button" class="btn-secondary gap-2" @click="downloadKey">
+              <Download class="h-4 w-4" />
+              Download
+            </button>
+          </div>
         </div>
       </div>
 
@@ -117,4 +164,47 @@ async function removeBackup(id, filename) {
       </div>
     </div>
   </div>
+
+  <Teleport to="body">
+    <div v-if="keyModalOpen" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div class="absolute inset-0 bg-black/50" aria-hidden="true" @click="closeKeyModal" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="private-key-title"
+        class="card relative z-10 flex max-h-[min(90vh,640px)] w-full max-w-2xl flex-col shadow-xl"
+      >
+        <div class="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <h2 id="private-key-title" class="text-lg font-semibold text-heading">Private key</h2>
+            <p class="mt-1 text-sm text-muted">Paste this into OPNsense under System → Configuration → Backups</p>
+          </div>
+          <button type="button" class="btn-ghost shrink-0 p-2" aria-label="Close" @click="closeKeyModal">
+            <X class="h-4 w-4" />
+          </button>
+        </div>
+        <div v-if="keyLoading" class="text-muted">Loading...</div>
+        <div v-else-if="keyError" class="text-sm text-red-600 dark:text-red-300">{{ keyError }}</div>
+        <template v-else>
+          <textarea
+            :value="keyContent"
+            readonly
+            rows="12"
+            class="input-field min-h-[240px] flex-1 resize-none font-mono text-xs leading-relaxed"
+          />
+          <div class="mt-4 flex items-center justify-between gap-3">
+            <p v-if="copied === 'key'" class="text-sm text-accent">Copied!</p>
+            <span v-else />
+            <div class="flex gap-2">
+              <button type="button" class="btn-ghost" @click="closeKeyModal">Close</button>
+              <button type="button" class="btn-primary gap-2" @click="copyText(keyContent, 'key')">
+                <Copy class="h-4 w-4" />
+                Copy to clipboard
+              </button>
+            </div>
+          </div>
+        </template>
+      </div>
+    </div>
+  </Teleport>
 </template>
