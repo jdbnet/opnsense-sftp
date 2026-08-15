@@ -3,7 +3,7 @@
 
   # OPNsense SFTP Backup Manager
 
-  Centralized backup receiver for OPNsense firewalls. Each firewall pushes encrypted config backups via SFTP using a per-instance SSH key pair. The app stores files on disk, tracks metadata in SQLite, and provides a web GUI for administration.
+  Centralised backup receiver for OPNsense firewalls. Each firewall pushes encrypted config backups via SFTP using a per-instance SSH key pair. The app stores files on disk, tracks metadata in SQLite, and provides a web GUI for administration.
 
 </div>
 
