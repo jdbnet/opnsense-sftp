@@ -51,16 +51,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload checksum sidecars
-        env:
-          VERSION: ${{ needs.version.outputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          for f in dist/opnsense-sftp-{amd64,arm64}; do
-            sha256sum "$f" | awk '{print $1}' > "${f}.sha256"
-          done
-          gh release upload "v${VERSION}" dist/opnsense-sftp-*.sha256 --clobber
-
       - name: Upload to Aptuary
         env:
           VERSION: ${{ needs.version.outputs.version }}

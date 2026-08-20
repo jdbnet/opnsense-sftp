@@ -81,7 +81,7 @@ update:
 
 ### Auto-update
 
-On startup, when `update.enabled` is true, the binary compares its SHA256 hash against the matching `.sha256` sidecar on GitHub Releases (`https://github.com/jdbnet/opnsense-sftp/releases/latest/download/opnsense-sftp-{arch}.sha256`). If a newer build is published, it downloads, verifies, replaces itself, and restarts. Disabled for local `dev` builds unless `update.allow_dev` is set.
+On startup, when `update.enabled` is true, the binary checks GitHub Releases for a newer build (`https://github.com/jdbnet/opnsense-sftp/releases/latest/download/opnsense-sftp-{arch}`) using the release asset ETag. If the published binary differs, it downloads, verifies, replaces itself, and restarts. Disabled for local `dev` builds unless `update.allow_dev` is set.
 
 The apt package ships with `update.enabled: false` because upgrades are handled by apt. The curl install script enables auto-update by default.
 
