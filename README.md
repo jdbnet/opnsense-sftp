@@ -19,13 +19,34 @@
 
 ## Install
 
-On a Linux server (amd64 or arm64):
+Add the JDB-NET apt repository, then install the package (amd64 or arm64):
 
 ```bash
-curl -fsSL https://git.jdbnet.co.uk/jamie/opnsense-sftp/raw/branch/main/deploy/install.sh | sudo bash
+curl -fsSL https://apt.jdbnet.co.uk/install/stable.sh | sudo bash
+sudo apt update
+sudo apt install opnsense-sftp
 ```
 
-This downloads the release binary from `apps.jdbnet.co.uk`, installs `opnsense-sftp` to `/usr/local/bin`, creates `/etc/opnsense-sftp/config.yaml`, and enables a systemd service.
+The package installs the binary to `/usr/local/bin/opnsense-sftp`, a default config at `/etc/opnsense-sftp/config.yaml`, and a systemd unit. Edit the config, then enable and start the service if needed:
+
+```bash
+sudo systemctl enable opnsense-sftp
+sudo systemctl start opnsense-sftp
+```
+
+Updates are delivered through the apt repository:
+
+```bash
+sudo apt update && sudo apt upgrade opnsense-sftp
+```
+
+### Alternative: curl install script
+
+```bash
+curl -fsSL https://github.com/jdbnet/opnsense-sftp/raw/main/deploy/install.sh | sudo bash
+```
+
+This downloads the release binary from GitHub Releases, installs `opnsense-sftp` to `/usr/local/bin`, creates `/etc/opnsense-sftp/config.yaml`, and enables a systemd service.
 
 ## Configuration
 
@@ -60,9 +81,9 @@ update:
 
 ### Auto-update
 
-On startup, when `update.enabled` is true, the binary compares its SHA256 hash against `https://apps.jdbnet.co.uk/opnsense-sftp-{arch}.sha256`. If a newer build is published, it downloads, verifies, replaces itself, and restarts. Disabled for local `dev` builds unless `update.allow_dev` is set.
+On startup, when `update.enabled` is true, the binary compares its SHA256 hash against the matching `.sha256` sidecar on GitHub Releases (`https://github.com/jdbnet/opnsense-sftp/releases/latest/download/opnsense-sftp-{arch}.sha256`). If a newer build is published, it downloads, verifies, replaces itself, and restarts. Disabled for local `dev` builds unless `update.allow_dev` is set.
 
-The install script enables auto-update by default.
+The apt package ships with `update.enabled: false` because upgrades are handled by apt. The curl install script enables auto-update by default.
 
 On first run, if no users exist, an `admin` user is created with password `changeme`. Change the password immediately.
 

@@ -1,0 +1,62 @@
+version: 2
+
+project_name: opnsense-sftp
+
+before:
+  hooks:
+    - go mod tidy
+    - bash -c 'cd ui && (npm ci --no-audit --no-fund 2>/dev/null || npm install --no-audit --no-fund) && npm run build'
+
+builds:
+  - id: opnsense-sftp
+    main: ./cmd/opnsense-sftp
+    binary: opnsense-sftp
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+
+archives:
+  - id: binaries
+    ids:
+      - opnsense-sftp
+    format: binary
+    name_template: "opnsense-sftp-{{ .Arch }}"
+
+nfpms:
+  - id: opnsense-sftp
+    package_name: opnsense-sftp
+    ids:
+      - opnsense-sftp
+    vendor: JDB-NET
+    homepage: https://github.com/jdbnet/opnsense-sftp
+    maintainer: Jamie <jamie@jdbnet.co.uk>
+    description: |-
+      Centralised backup receiver for OPNsense firewalls with SFTP,
+      SQLite metadata, and an embedded web UI.
+    formats:
+      - deb
+    bindir: /usr/local/bin
+    file_name_template: "opnsense-sftp_{{ .Version }}_{{ .Arch }}"
+    contents:
+      - src: deploy/opnsense-sftp.service
+        dst: /lib/systemd/system/opnsense-sftp.service
+      - src: deploy/config.yaml
+        dst: /etc/opnsense-sftp/config.yaml
+        type: config|noreplace
+    deb:
+      compression: gzip
+
+changelog:
+  disable: true
+
+release:
+  github:
+    owner: jdbnet
+    name: opnsense-sftp

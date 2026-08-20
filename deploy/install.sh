@@ -4,7 +4,7 @@ set -euo pipefail
 INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/opnsense-sftp}"
 DATA_DIR="${DATA_DIR:-/var/lib/opnsense-sftp}"
-BASE_URL="${OPNSENSE_SFTP_DOWNLOAD_URL:-https://apps.jdbnet.co.uk}"
+BASE_URL="${OPNSENSE_SFTP_DOWNLOAD_URL:-https://github.com/jdbnet/opnsense-sftp/releases/latest/download}"
 SERVICE_NAME="opnsense-sftp"
 
 if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then

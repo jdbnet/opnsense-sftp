@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -18,6 +19,13 @@ func fakeELF(n int) []byte {
 		b[i] = byte(i)
 	}
 	return b
+}
+
+func TestDefaultURL(t *testing.T) {
+	url := DefaultURL()
+	if !strings.Contains(url, "github.com/jdbnet/opnsense-sftp/releases/latest/download/") {
+		t.Fatalf("unexpected default url: %s", url)
+	}
 }
 
 func TestSkip(t *testing.T) {

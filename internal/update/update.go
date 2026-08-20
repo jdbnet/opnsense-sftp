@@ -15,7 +15,10 @@ import (
 	"time"
 )
 
-const defaultBase = "https://apps.jdbnet.co.uk"
+const (
+	githubOwner = "jdbnet"
+	githubRepo  = "opnsense-sftp"
+)
 
 var (
 	minBytes   int64 = 1 << 20
@@ -34,7 +37,7 @@ func DefaultURL() string {
 	if runtime.GOARCH == "arm64" {
 		asset = "opnsense-sftp-arm64"
 	}
-	return defaultBase + "/" + asset
+	return fmt.Sprintf("https://github.com/%s/%s/releases/latest/download/%s", githubOwner, githubRepo, asset)
 }
 
 func Skip(cfg Config, version string) string {

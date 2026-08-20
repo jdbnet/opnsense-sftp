@@ -1,0 +1,82 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+env:
+  APTUARY_DISTRIBUTION: stable
+  APTUARY_COMPONENT: main
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semantic.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: semantic
+        uses: go-semantic-release/action@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  publish:
+    needs: version
+    if: needs.version.outputs.version != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version.outputs.version }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - uses: goreleaser/goreleaser-action@v6
+        with:
+          version: '~> v2'
+          args: release --clean
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload checksum sidecars
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          for f in dist/opnsense-sftp-{amd64,arm64}; do
+            sha256sum "$f" | awk '{print $1}' > "${f}.sha256"
+          done
+          gh release upload "v${VERSION}" dist/opnsense-sftp-*.sha256 --clobber
+
+      - name: Upload to Aptuary
+        env:
+          VERSION: ${{ needs.version.outputs.version }}
+          APTUARY_URL: ${{ secrets.APTUARY_URL }}
+          APTUARY_API_KEY: ${{ secrets.APTUARY_API_KEY }}
+        run: |
+          if [ -z "$APTUARY_URL" ] || [ -z "$APTUARY_API_KEY" ]; then
+            echo "Skipping Aptuary upload (APTUARY_URL and APTUARY_API_KEY secrets not set)"
+            exit 0
+          fi
+          BASE="${APTUARY_URL%/}"
+          QUERY="distribution=${APTUARY_DISTRIBUTION}&component=${APTUARY_COMPONENT}"
+          for deb in dist/opnsense-sftp_${VERSION}_*.deb; do
+            echo "Uploading ${deb}"
+            curl -fsSL -X POST \
+              -H "Authorization: Bearer ${APTUARY_API_KEY}" \
+              -F "file=@${deb}" \
+              "${BASE}/api/v1/upload?${QUERY}"
+          done

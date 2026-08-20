@@ -1,0 +1,16 @@
+listen: 0.0.0.0:8080
+log_level: info
+data_dir: /var/lib/opnsense-sftp
+keys_dir: /var/lib/opnsense-sftp/keys
+backups_dir: /var/lib/opnsense-sftp/backups
+session_secret: change-me
+sftp:
+  listen: 0.0.0.0:2222
+  public_host: ""
+  public_port: 0
+prune:
+  check_interval: 1h
+update:
+  enabled: false
+  url: ""
+  allow_dev: false
