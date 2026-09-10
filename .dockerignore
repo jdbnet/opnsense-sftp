@@ -1,0 +1,12 @@
+.git
+.github
+.gitea
+dist
+opnsense-sftp
+data
+ui/node_modules
+ui/dist
+*.md
+LICENSE
+.gitignore
+.goreleaser.yaml

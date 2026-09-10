@@ -48,6 +48,27 @@ curl -fsSL https://github.com/jdbnet/opnsense-sftp/raw/main/deploy/install.sh | 
 
 This downloads the release binary from GitHub Releases, installs `opnsense-sftp` to `/usr/local/bin`, creates `/etc/opnsense-sftp/config.yaml`, and enables a systemd service.
 
+### Docker
+
+Images are published to `ghcr.io/jdbnet/opnsense-sftp` for `linux/amd64` and `linux/arm64`. Bind-mount config, SQLite data, keys, and backups:
+
+```yaml
+services:
+  opnsense-sftp:
+    image: ghcr.io/jdbnet/opnsense-sftp:latest
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+      - "2222:2222"
+    volumes:
+      - ./config.yaml:/etc/opnsense-sftp/config.yaml:ro
+      - ./data:/var/lib/opnsense-sftp
+      - ./keys:/var/lib/opnsense-sftp/keys
+      - ./backups:/var/lib/opnsense-sftp/backups
+```
+
+Use `deploy/config.yaml` as a starting point. SQLite is stored under `data_dir` (`./data` above). Keep `keys_dir` and `backups_dir` on their own bind mounts so keys and backup files persist independently of the database.
+
 ## Configuration
 
 Example `config.yaml`:
