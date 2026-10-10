@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -34,7 +35,8 @@ func New(cfg *config.Config, authSvc *auth.Service, db *store.DB, keysMgr *keys.
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/v1/health", s.health)
+	mux.Handle("GET /api/v1/health", s.auth.APIKeyMiddleware(http.HandlerFunc(s.health)))
+	mux.Handle("GET /api/v1/backups/status", s.auth.APIKeyMiddleware(http.HandlerFunc(s.backupStatus)))
 	mux.HandleFunc("GET /api/v1/auth/status", s.authStatus)
 	mux.HandleFunc("POST /api/v1/auth/login", s.login)
 	mux.HandleFunc("POST /api/v1/auth/login/totp", s.loginTOTP)
@@ -50,6 +52,9 @@ func (s *Server) Handler() http.Handler {
 	prot.HandleFunc("POST /api/v1/users", auth.RequireAdmin(s.createUser))
 	prot.HandleFunc("PUT /api/v1/users/{id}/toggle-admin", auth.RequireAdmin(s.toggleAdmin))
 	prot.HandleFunc("DELETE /api/v1/users/{id}", auth.RequireAdmin(s.deleteUser))
+	prot.HandleFunc("GET /api/v1/api-keys", auth.RequireAdmin(s.listAPIKeys))
+	prot.HandleFunc("POST /api/v1/api-keys", auth.RequireAdmin(s.createAPIKey))
+	prot.HandleFunc("DELETE /api/v1/api-keys/{id}", auth.RequireAdmin(s.revokeAPIKey))
 	prot.HandleFunc("GET /api/v1/dashboard", s.dashboard)
 	prot.HandleFunc("GET /api/v1/instances", s.listInstances)
 	prot.HandleFunc("POST /api/v1/instances", s.createInstance)
@@ -65,10 +70,6 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("/api/v1/", s.auth.Middleware(prot))
 	mux.Handle("/", spaHandler())
 	return mux
-}
-
-func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, map[string]string{"status": "ok", "version": s.version})
 }
 
 func (s *Server) authStatus(w http.ResponseWriter, r *http.Request) {
@@ -285,6 +286,53 @@ func (s *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+func (s *Server) listAPIKeys(w http.ResponseWriter, r *http.Request) {
+	keys, err := s.auth.ListAPIKeys()
+	if err != nil {
+		writeErr(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	if keys == nil {
+		keys = []store.APIKey{}
+	}
+	writeJSON(w, http.StatusOK, keys)
+}
+
+func (s *Server) createAPIKey(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Name string `json:"name"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	raw, rec, err := s.auth.CreateAPIKey(req.Name)
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusCreated, struct {
+		store.APIKey
+		Key string `json:"key"`
+	}{APIKey: *rec, Key: raw})
+}
+
+func (s *Server) revokeAPIKey(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r, "id")
+	if err != nil {
+		writeErr(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if err := s.auth.RevokeAPIKey(id); err != nil {
+		if errors.Is(err, auth.ErrAPIKeyFromConfig) {
+			writeErr(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		writeErr(w, http.StatusNotFound, "api key not found")
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) dashboard(w http.ResponseWriter, r *http.Request) {
 	instances, _ := s.db.CountInstances()
 	backups, _ := s.db.CountBackups()
@@ -430,11 +478,11 @@ func (s *Server) listBackups(w http.ResponseWriter, r *http.Request) {
 		backups = []store.Backup{}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
-		"items":     backups,
-		"total":     total,
-		"page":      page,
-		"per_page":  perPage,
-		"pages":     (total + perPage - 1) / perPage,
+		"items":    backups,
+		"total":    total,
+		"page":     page,
+		"per_page": perPage,
+		"pages":    (total + perPage - 1) / perPage,
 	})
 }
 

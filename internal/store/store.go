@@ -82,6 +82,15 @@ func (db *DB) migrate() error {
 			uploaded_at TEXT NOT NULL,
 			FOREIGN KEY(instance_id) REFERENCES opnsense_instances(id) ON DELETE CASCADE
 		)`,
+		`CREATE TABLE IF NOT EXISTS api_keys (
+			id INTEGER PRIMARY KEY AUTOINCREMENT,
+			name TEXT NOT NULL,
+			key_prefix TEXT NOT NULL,
+			key_hash TEXT NOT NULL UNIQUE,
+			source TEXT NOT NULL DEFAULT 'ui',
+			created_at TEXT NOT NULL,
+			revoked_at TEXT
+		)`,
 		`CREATE TABLE IF NOT EXISTS backup_prune_settings (
 			id INTEGER PRIMARY KEY,
 			enabled INTEGER NOT NULL DEFAULT 0,
