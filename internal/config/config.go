@@ -13,15 +13,27 @@ import (
 )
 
 type Config struct {
-	Listen        string      `yaml:"listen"`
-	LogLevel      string      `yaml:"log_level"`
-	DataDir       string      `yaml:"data_dir"`
-	KeysDir       string      `yaml:"keys_dir"`
-	BackupsDir    string      `yaml:"backups_dir"`
-	SessionSecret string      `yaml:"session_secret"`
+	Listen        string       `yaml:"listen"`
+	LogLevel      string       `yaml:"log_level"`
+	DataDir       string       `yaml:"data_dir"`
+	KeysDir       string       `yaml:"keys_dir"`
+	BackupsDir    string       `yaml:"backups_dir"`
+	SessionSecret string       `yaml:"session_secret"`
 	SFTP          SFTPConfig   `yaml:"sftp"`
 	Prune         PruneConfig  `yaml:"prune"`
 	Update        UpdateConfig `yaml:"update"`
+	// StaleAfter is how long after the last successful backup a firewall counts as stale.
+	// OPNsense pushes on its own schedule, which this app does not store, so the default is 48h.
+	StaleAfter Duration `yaml:"stale_after"`
+	// APIKeys are read-only credentials for the status API. Plaintext lives only in config;
+	// startup stores a hash.
+	APIKeys []APIKey `yaml:"api_keys"`
+}
+
+// APIKey is a configured read-only status API credential.
+type APIKey struct {
+	Name string `yaml:"name"`
+	Key  string `yaml:"key"`
 }
 
 type UpdateConfig struct {
@@ -74,6 +86,7 @@ func defaultConfig() *Config {
 		Update: UpdateConfig{
 			Enabled: true,
 		},
+		StaleAfter: Duration{48 * time.Hour},
 	}
 }
 
@@ -156,6 +169,55 @@ func applyEnv(cfg *Config) {
 	if v := os.Getenv("OPNSENSE_SFTP_UPDATE_URL"); v != "" {
 		cfg.Update.URL = v
 	}
+	if v := os.Getenv("OPNSENSE_SFTP_STALE_AFTER"); v != "" {
+		if d, err := time.ParseDuration(strings.TrimSpace(v)); err == nil && d > 0 {
+			cfg.StaleAfter = Duration{d}
+		}
+	}
+	if v := os.Getenv("OPNSENSE_SFTP_API_KEYS"); v != "" {
+		cfg.APIKeys = mergeAPIKeys(cfg.APIKeys, parseAPIKeysEnv(v))
+	}
+	if cfg.StaleAfter.Duration <= 0 {
+		cfg.StaleAfter = Duration{48 * time.Hour}
+	}
+}
+
+// parseAPIKeysEnv parses comma-separated name:key pairs. The name is the text
+// before the first colon, so the key itself may contain colons. Keys must not
+// contain commas.
+func parseAPIKeysEnv(v string) []APIKey {
+	var out []APIKey
+	for _, part := range strings.Split(v, ",") {
+		part = strings.TrimSpace(part)
+		if part == "" {
+			continue
+		}
+		name, key, ok := strings.Cut(part, ":")
+		name = strings.TrimSpace(name)
+		key = strings.TrimSpace(key)
+		if !ok || name == "" || key == "" {
+			continue
+		}
+		out = append(out, APIKey{Name: name, Key: key})
+	}
+	return out
+}
+
+func mergeAPIKeys(base, extra []APIKey) []APIKey {
+	out := append([]APIKey(nil), base...)
+	index := make(map[string]int, len(out))
+	for i, k := range out {
+		index[k.Name] = i
+	}
+	for _, k := range extra {
+		if i, ok := index[k.Name]; ok {
+			out[i] = k
+			continue
+		}
+		index[k.Name] = len(out)
+		out = append(out, k)
+	}
+	return out
 }
 
 func parseBool(v string) bool {

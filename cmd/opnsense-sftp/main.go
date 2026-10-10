@@ -85,6 +85,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	named := make([]auth.NamedKey, 0, len(cfg.APIKeys))
+	for _, k := range cfg.APIKeys {
+		named = append(named, auth.NamedKey{Name: k.Name, Key: k.Key})
+	}
+	if err := authSvc.SyncConfigAPIKeys(named); err != nil {
+		slog.Error("sync api keys", "err", err)
+		os.Exit(1)
+	}
+
 	keysMgr := keys.NewManager(cfg.KeysDir)
 	sftpServer := sftpsrv.New(cfg.SFTP.Listen, cfg.BackupsDir, db, keysMgr)
 	if err := sftpServer.Start(); err != nil {

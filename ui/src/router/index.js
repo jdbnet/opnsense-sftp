@@ -10,6 +10,7 @@ import Backups from '@/views/Backups.vue'
 import Prune from '@/views/Prune.vue'
 import Profile from '@/views/Profile.vue'
 import Users from '@/views/Users.vue'
+import ApiKeys from '@/views/ApiKeys.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -24,6 +25,7 @@ const router = createRouter({
     { path: '/prune', name: 'prune', component: Prune },
     { path: '/profile', name: 'profile', component: Profile },
     { path: '/users', name: 'users', component: Users },
+    { path: '/api-keys', name: 'api-keys', component: ApiKeys },
   ],
 })
 
@@ -43,7 +45,7 @@ router.beforeEach(async (to) => {
   if (auth.authRequired && !auth.authenticated) {
     return { path: '/login', query: { redirect: to.fullPath } }
   }
-  if (to.path === '/users' && !auth.me?.user?.is_admin) {
+  if ((to.path === '/users' || to.path === '/api-keys') && !auth.me?.user?.is_admin) {
     return '/'
   }
   return true

@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
-  Menu, X, LayoutDashboard, Server, Archive, Scissors, User, Users, LogOut, Sun, Moon,
+  Menu, X, LayoutDashboard, Server, Archive, Scissors, User, Users, KeyRound, LogOut, Sun, Moon,
 } from '@lucide/vue'
 import { useAuthStore } from '@/stores/auth'
 import { useThemeStore } from '@/stores/theme'
@@ -23,6 +23,7 @@ const nav = computed(() => {
   ]
   if (auth.me?.user?.is_admin) {
     items.push({ to: '/users', label: 'Users', icon: Users, match: (p) => p.startsWith('/users') })
+    items.push({ to: '/api-keys', label: 'API keys', icon: KeyRound, match: (p) => p.startsWith('/api-keys') })
   }
   return items
 })
